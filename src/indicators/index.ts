@@ -175,3 +175,17 @@ export function failureSwing(r: Series, hi = 70, lo = 30, maxAge = 30): "bearish
   }
   return null;
 }
+
+/** Wilder's Average True Range. */
+export function atr(c: Candle[], n = 14): Series {
+  const out: Series = new Array(c.length).fill(null);
+  if (c.length <= n) return out;
+  const tr = c.map((x, i) => (i === 0 ? x.high - x.low : Math.max(x.high - x.low, Math.abs(x.high - c[i - 1].close), Math.abs(x.low - c[i - 1].close))));
+  let prev = tr.slice(1, n + 1).reduce((a, b) => a + b, 0) / n;
+  out[n] = prev;
+  for (let i = n + 1; i < c.length; i++) {
+    prev = (prev * (n - 1) + tr[i]) / n;
+    out[i] = prev;
+  }
+  return out;
+}
