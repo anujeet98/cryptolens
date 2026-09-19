@@ -14,6 +14,8 @@ import { OrderBookPanel } from "@/components/OrderBookPanel";
 import { useOrderBook } from "@/hooks/useOrderBook";
 import { TradeFlowPanel } from "@/components/TradeFlowPanel";
 import { useTradeFlow } from "@/hooks/useTradeFlow";
+import { LiquidationsPanel } from "@/components/LiquidationsPanel";
+import { useLiquidations } from "@/hooks/useLiquidations";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
@@ -66,6 +68,7 @@ export default function Home() {
   })();
   const ob = useOrderBook(symbol, mt);
   const flow = useTradeFlow(symbol, mt);
+  const liq = useLiquidations(perpSymbol);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -113,6 +116,7 @@ export default function Home() {
       </section>
 
       <TradeFlowPanel tf={flow} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
+      <LiquidationsPanel liq={liq} symbol={perpSymbol} now={now} />
       <OrderBookPanel ob={ob} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
       <DerivativesPanel st={deriv} funding={funding} oi={oi} symbol={perpSymbol} now={now} nextFundingIn={nextFundingIn} />
       <MomentumVolumePanel m={momentum} v={volume} windows={volWindows} ticker={live.ticker} tf={tf} />
