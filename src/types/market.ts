@@ -1,4 +1,4 @@
-export type ExchangeId = "binance" | "bybit" | "okx";
+export type ExchangeId = "binance" | "bybit" | "bitget" | "okx";
 export type MarketType = "spot" | "perp";
 
 export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
