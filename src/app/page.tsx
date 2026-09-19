@@ -16,6 +16,8 @@ import { TradeFlowPanel } from "@/components/TradeFlowPanel";
 import { useTradeFlow } from "@/hooks/useTradeFlow";
 import { LiquidationsPanel } from "@/components/LiquidationsPanel";
 import { useLiquidations } from "@/hooks/useLiquidations";
+import { CrossExchangePanel } from "@/components/CrossExchangePanel";
+import { useCrossExchange } from "@/hooks/useCrossExchange";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
@@ -69,6 +71,7 @@ export default function Home() {
   const ob = useOrderBook(symbol, mt);
   const flow = useTradeFlow(symbol, mt);
   const liq = useLiquidations(perpSymbol);
+  const xch = useCrossExchange(base);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -115,6 +118,7 @@ export default function Home() {
         </div>
       </section>
 
+      <CrossExchangePanel x={xch} now={now} />
       <TradeFlowPanel tf={flow} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
       <LiquidationsPanel liq={liq} symbol={perpSymbol} now={now} />
       <OrderBookPanel ob={ob} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
