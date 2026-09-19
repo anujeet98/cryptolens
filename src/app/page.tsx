@@ -18,6 +18,7 @@ import { LiquidationsPanel } from "@/components/LiquidationsPanel";
 import { useLiquidations } from "@/hooks/useLiquidations";
 import { CrossExchangePanel } from "@/components/CrossExchangePanel";
 import { RegimePanel } from "@/components/RegimePanel";
+import { RiskPanel } from "@/components/RiskPanel";
 import { useMtfRegime } from "@/hooks/useMtfRegime";
 import { classifyRegime } from "@/regime/regime";
 import { useCrossExchange } from "@/hooks/useCrossExchange";
@@ -101,6 +102,7 @@ export default function Home() {
         d={deriv.data ? { funding: deriv.data.snapshot.fundingRate, oiUsd: deriv.data.snapshot.openInterestUsd, oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct, ls: deriv.data.ls.at(-1)?.ratio } : undefined} />
 
       <RegimePanel r={regime} mtf={mtfRegime} tf={tf} />
+      <RiskPanel r={regime} price={live.ticker?.price ?? live.candles.at(-1)?.close ?? null} tf={tf} />
 
       <section className="rounded border border-line bg-panel">
         <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
