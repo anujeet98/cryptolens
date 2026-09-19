@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 3 — volume (relative volume, windows, price/volume state) and momentum score (with acceleration) on top of live chart + indicators.
+**Status:** Phase 4 — funding + open interest (Binance perp), on top of chart, indicators, volume and momentum.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.

@@ -1,28 +1,33 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
 import {
-  CandlestickSeries, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
+  CandlestickSeries, HistogramSeries, LineSeries, LineStyle, LineType, createChart, createSeriesMarkers,
   type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type SeriesMarker, type Time, type UTCTimestamp,
 } from "lightweight-charts";
+import { alignStep } from "@/lib/align";
+import { TF_SECONDS } from "@/analysis/volume";
 import { bollinger, ema, macd, pivots, rsi, vwap, type Series } from "@/indicators";
-import type { Candle } from "@/types/market";
+import type { Candle, FundingPoint, OiPoint, Timeframe } from "@/types/market";
 
 export interface Toggles {
   ema9: boolean; ema20: boolean; ema50: boolean; ema100: boolean; ema200: boolean;
-  vwap: boolean; bb: boolean; swings: boolean; rsi: boolean; macd: boolean;
+  vwap: boolean; bb: boolean; swings: boolean; rsi: boolean; macd: boolean; oi: boolean; funding: boolean;
 }
 export const DEFAULT_TOGGLES: Toggles = {
   ema9: false, ema20: true, ema50: true, ema100: false, ema200: true,
-  vwap: true, bb: false, swings: true, rsi: true, macd: true,
+  vwap: true, bb: false, swings: true, rsi: true, macd: true, oi: true, funding: false,
 };
 export const EMA_COLORS: Record<number, string> = { 9: "#facc15", 20: "#38bdf8", 50: "#a78bfa", 100: "#fb923c", 200: "#e5e7eb" };
 
 const UP = "#22c55e", DOWN = "#ef4444";
 type Line = ISeriesApi<"Line">;
 
+const compactUsd = (v: number) => (Math.abs(v) >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v.toFixed(0));
 const line = (t: number, v: number | null) => (v === null ? null : { time: t as UTCTimestamp, value: v });
 
-export function PriceChart({ candles, resetKey, toggles }: { candles: Candle[]; resetKey: string; toggles: Toggles }) {
+export function PriceChart({ candles, resetKey, toggles, tf, oi, funding }: {
+  candles: Candle[]; resetKey: string; toggles: Toggles; tf: Timeframe; oi: OiPoint[]; funding: FundingPoint[];
+}) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const cs = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -33,7 +38,7 @@ export function PriceChart({ candles, resetKey, toggles }: { candles: Candle[]; 
   const loadedKey = useRef("");
   const data = useRef<ReturnType<typeof compute> | null>(null);
 
-  const ind = useMemo(() => compute(candles), [candles]);
+  const ind = useMemo(() => compute(candles, tf, oi, funding), [candles, tf, oi, funding]);
 
   useEffect(() => {
     const c = createChart(el.current!, {
@@ -94,6 +99,15 @@ export function PriceChart({ candles, resetKey, toggles }: { candles: Candle[]; 
       } });
       add("#38bdf8", () => data.current!.macd.macd, pane);
       add("#f59e0b", () => data.current!.macd.signal, pane);
+      pane++;
+    }
+    if (toggles.oi) {
+      add("#2dd4bf", () => data.current!.oiUsd, pane, { lineWidth: 2, priceFormat: { type: "custom", minMove: 1, formatter: compactUsd } });
+      pane++;
+    }
+    if (toggles.funding) {
+      add("#f59e0b", () => data.current!.funding, pane, { lineWidth: 2, lineType: LineType.WithSteps, priceFormat: { type: "custom", minMove: 0.0001, formatter: (v: number) => `${v.toFixed(4)}%` } });
+      pane++;
     }
     const panes = c.panes();
     panes.forEach((p, i) => p.setStretchFactor(i === 0 ? 6 : 1.4));
@@ -159,7 +173,7 @@ export function PriceChart({ candles, resetKey, toggles }: { candles: Candle[]; 
   return <div ref={el} className="h-full w-full" />;
 }
 
-function compute(candles: Candle[]) {
+function compute(candles: Candle[], tf: Timeframe, oi: OiPoint[], funding: FundingPoint[]) {
   const close = candles.map((c) => c.close);
   return {
     ema: { 9: ema(close, 9), 20: ema(close, 20), 50: ema(close, 50), 100: ema(close, 100), 200: ema(close, 200) } as Record<number, Series>,
@@ -167,5 +181,7 @@ function compute(candles: Candle[]) {
     bb: bollinger(close, 20, 2),
     rsi14: rsi(close, 14),
     macd: macd(close),
+    oiUsd: alignStep(candles, oi, TF_SECONDS[tf], (p) => p.oiUsd),
+    funding: alignStep(candles, funding, TF_SECONDS[tf], (p) => p.rate * 100),
   };
 }

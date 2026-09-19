@@ -38,3 +38,21 @@ export interface CoinListing {
   base: string;
   markets: MarketRef[];
 }
+
+export interface FundingPoint { time: number; rate: number } // time: unix seconds; rate: per funding interval (0.0001 = 0.01%)
+export interface OiPoint { time: number; oi: number; oiUsd: number } // oi in base units, oiUsd notional
+export interface LongShortPoint { time: number; ratio: number; longPct: number; shortPct: number }
+
+export interface DerivativesSnapshot {
+  exchange: ExchangeId;
+  symbol: string;
+  timestamp: number;
+  markPrice: number;
+  indexPrice: number;
+  fundingRate: number;
+  nextFundingTime: number; // ms
+  openInterest: number; // base units
+  openInterestUsd: number;
+}
+
+export type OiPeriod = "5m" | "15m" | "30m" | "1h" | "2h" | "4h" | "6h" | "12h" | "1d";
