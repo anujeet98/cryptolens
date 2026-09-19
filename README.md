@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 8b — cross-exchange across Binance, Bybit and Bitget (per-venue mark, funding, OI, volume), on top of chart, indicators, volume, momentum, funding, OI, order book, trade flow and liquidations.
+**Status:** Phase 9 — market regime (trend/range + volatility state with evidence and a multi-timeframe strip), on top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations and cross-exchange.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.
@@ -27,6 +27,7 @@ npm run dev   # http://localhost:3000
 - `src/exchanges/bybit` — Bybit v5 connector (spot + linear perp, no API key)
 - `src/exchanges/bitget` — Bitget v2 connector (spot + USDT-margined perp, no API key; no OI history endpoint)
 - `src/crossexchange` — pure venue comparison (funding normalised to 8h, basis vs reference, OI/volume share), unit-tested
+- `src/regime` — rule-based regime classifier (ADX-gated trend vs range, weighted directional vote, volatility percentile, stall detection), unit-tested
 - `src/types` — common schema
 
 ## Notes on exchanges

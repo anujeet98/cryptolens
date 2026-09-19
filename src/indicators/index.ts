@@ -189,3 +189,37 @@ export function atr(c: Candle[], n = 14): Series {
   }
   return out;
 }
+
+export interface Adx { adx: Series; plusDI: Series; minusDI: Series }
+
+/** Wilder's ADX with +DI/-DI. First ADX value lands at index 2n-1; earlier entries are null. */
+export function adx(c: Candle[], n = 14): Adx {
+  const len = c.length;
+  const out: Adx = { adx: new Array(len).fill(null), plusDI: new Array(len).fill(null), minusDI: new Array(len).fill(null) };
+  if (len < 2 * n) return out;
+  const tr: number[] = [0], pdm: number[] = [0], mdm: number[] = [0];
+  for (let i = 1; i < len; i++) {
+    const up = c[i].high - c[i - 1].high, down = c[i - 1].low - c[i].low;
+    tr.push(Math.max(c[i].high - c[i].low, Math.abs(c[i].high - c[i - 1].close), Math.abs(c[i].low - c[i - 1].close)));
+    pdm.push(up > down && up > 0 ? up : 0);
+    mdm.push(down > up && down > 0 ? down : 0);
+  }
+  let sTr = 0, sP = 0, sM = 0;
+  for (let i = 1; i <= n; i++) { sTr += tr[i]; sP += pdm[i]; sM += mdm[i]; }
+  const dx: number[] = [];
+  let prevAdx: number | null = null;
+  for (let i = n; i < len; i++) {
+    if (i > n) { sTr = sTr - sTr / n + tr[i]; sP = sP - sP / n + pdm[i]; sM = sM - sM / n + mdm[i]; }
+    const p = sTr > 0 ? (100 * sP) / sTr : 0, m = sTr > 0 ? (100 * sM) / sTr : 0;
+    out.plusDI[i] = p; out.minusDI[i] = m;
+    const d = p + m > 0 ? (100 * Math.abs(p - m)) / (p + m) : 0;
+    if (prevAdx === null) {
+      dx.push(d);
+      if (dx.length === n) { prevAdx = dx.reduce((a, b) => a + b, 0) / n; out.adx[i] = prevAdx; }
+    } else {
+      prevAdx = (prevAdx * (n - 1) + d) / n;
+      out.adx[i] = prevAdx;
+    }
+  }
+  return out;
+}
