@@ -10,6 +10,12 @@ const REST = {
 // The legacy unrouted /stream endpoint connects but delivers nothing.
 const FUT_DATA = "https://fapi.binance.com/futures/data";
 
+// Depth streams follow the same split: futures depth lives under /public.
+export const DEPTH_WS = {
+  spot: "wss://stream.binance.com:9443/stream",
+  perp: "wss://fstream.binance.com/public/stream",
+} as const;
+
 export const WS = {
   spot: "wss://stream.binance.com:9443/stream",
   perp: "wss://fstream.binance.com/market/stream",
@@ -65,6 +71,12 @@ export const binance: ExchangeConnector = {
       quoteVolume: +(r[7] as string),
       closed: Number(r[6]) < now,
     }));
+  },
+
+  async getOrderBookSnapshot(symbol, marketType, limit) {
+    const d = await get<{ lastUpdateId: number; bids: string[][]; asks: string[][] }>(`${REST[marketType]}/depth?symbol=${symbol}&limit=${limit}`);
+    const conv = (rows: string[][]) => rows.map((r) => [+r[0], +r[1]] as [number, number]);
+    return { lastUpdateId: d.lastUpdateId, bids: conv(d.bids), asks: conv(d.asks) };
   },
 
   derivatives: {
