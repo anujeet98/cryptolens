@@ -3,6 +3,8 @@ import { getConnector } from "@/exchanges";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import type { ExchangeId, MarketType } from "@/types/market";
 
+export const maxDuration = 15;
+
 /** Fresh REST order-book snapshot (never cached: it anchors the local book's sequence numbers). */
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;

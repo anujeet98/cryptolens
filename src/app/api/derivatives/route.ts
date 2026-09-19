@@ -4,6 +4,8 @@ import { cached } from "@/lib/cache";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import type { ExchangeId } from "@/types/market";
 
+export const maxDuration = 20;
+
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const exchange = (p.get("exchange") ?? "binance") as ExchangeId;

@@ -4,6 +4,8 @@ import { cached } from "@/lib/cache";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import type { ExchangeId, OiPeriod } from "@/types/market";
 
+export const maxDuration = 15;
+
 const PERIODS = ["5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"];
 
 /** Open-interest history at a given period, used to plot OI under the price chart. */

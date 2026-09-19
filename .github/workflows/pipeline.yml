@@ -1,0 +1,146 @@
+name: Pipeline
+
+# verify -> (PR) preview deploy + smoke test | (main) staged deploy + smoke test + promote + rollback on failure.
+# Deploys are driven from here, not by Vercel's Git integration, so nothing ships unless verify and the smoke test pass.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "24"
+  VERCEL_CLI_VERSION: "55.0.0"
+  # Public production URL; used to record what is live (for rollback) and to verify after promotion.
+  PROD_URL: https://cryptolens-silk.vercel.app
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Smoke script syntax
+        run: bash -n scripts/smoke.sh && bash -n scripts/deploy.sh
+
+  preview:
+    name: Preview deploy
+    needs: verify
+    # Forks and Dependabot cannot read repository secrets, so they only get the verify job.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Require deployment secrets
+        run: |
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!v}" ] || { echo "::error::Repository secret $v is not set. See the Deployment section of the README."; exit 1; }
+          done
+      - run: npm ci
+      - run: npm install --global "vercel@${VERCEL_CLI_VERSION}" --no-audit --no-fund
+      - name: Deploy preview and smoke test it
+        id: deploy
+        run: scripts/deploy.sh preview
+      - name: Comment the preview URL on the PR
+        if: always() && steps.deploy.outputs.url != ''
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker='<!-- cryptolens-preview -->'
+          if [ "$OUTCOME" = "success" ]; then status="Smoke test passed"; else status="Smoke test FAILED (see the workflow run)"; fi
+          body="$marker
+          ### Preview deployment
+          | | |
+          |---|---|
+          | URL | $URL |
+          | Commit | \`${SHA:0:7}\` |
+          | Region | bom1 (Mumbai) |
+          | Result | $status |
+
+          Preview URLs sit behind Vercel deployment protection: open them while logged in to Vercel."
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
+          else gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null; fi
+
+  production:
+    name: Production deploy
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://cryptolens-silk.vercel.app
+    # Never run two production deploys at once, and never cancel one halfway through a promotion.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Require deployment secrets
+        run: |
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!v}" ] || { echo "::error::Repository secret $v is not set. See the Deployment section of the README."; exit 1; }
+          done
+      - run: npm ci
+      - run: npm install --global "vercel@${VERCEL_CLI_VERSION}" --no-audit --no-fund
+      - name: Stage, smoke test, promote, verify (rolls back on failure)
+        id: deploy
+        run: scripts/deploy.sh production
+      - name: Summary
+        if: always()
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+        run: |
+          {
+            echo "### Production deploy: $OUTCOME"
+            echo "- Staged deployment: ${URL:-none}"
+            echo "- Live: $PROD_URL"
+            echo "- Commit: \`${GITHUB_SHA:0:7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
