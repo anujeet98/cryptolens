@@ -16,6 +16,7 @@ export interface LiqWindow { label: string; sec: number; longUsd: number; shortU
 export interface TopLiq { symbol: string; longUsd: number; shortUsd: number; count: number }
 
 export interface LiqSnapshot {
+  symbol: string | null; // the symbol the per-symbol fields describe; consumers must check it matches what is on screen
   windows: LiqWindow[];
   recent: LiqEvent[]; // selected symbol, newest first
   burst: { active: boolean; lastMinUsd: number; avgMinUsd: number; dominant: "long" | "short" | null };
@@ -88,7 +89,7 @@ export class LiqStore {
     const top = [...by.values()].sort((a, b) => b.longUsd + b.shortUsd - (a.longUsd + a.shortUsd)).slice(0, 8);
 
     return {
-      windows, collectedSec,
+      symbol, windows, collectedSec,
       recent: mine.slice(-25).reverse(),
       burst: { active, lastMinUsd, avgMinUsd, dominant },
       market: { longUsd: mLong, shortUsd: mShort, count: mCount, top },
