@@ -95,7 +95,7 @@ export function RegimePanel({ r, mtf, tf }: { r: Regime | null; mtf: MtfRegimes;
         </div>
       </div>
       <div className="border-t border-line px-3 py-1.5 text-[11px] text-muted">
-        Rule-based read of recent price behaviour: ADX gates trend vs range, a weighted vote of seven signals sets direction. It describes the past and is not a forecast. Funding/OI notes are context and never change the label.
+        Rule-based read of recent price behaviour: ADX gates trend vs range, a weighted vote of seven signals sets direction. It describes the past and is not a forecast. Backtests (npm run backtest) found the volatility label does tell how much price tends to move next, but the trend and momentum labels carried no significant directional information. Funding/OI notes are context and never change the label.
       </div>
     </section>
   );

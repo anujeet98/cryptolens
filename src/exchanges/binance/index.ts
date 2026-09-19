@@ -8,6 +8,7 @@ const REST = {
 
 // Futures split its streams by path: /market (ticker, kline, markPrice, liquidations) and /public (bookTicker, depth).
 // The legacy unrouted /stream endpoint connects but delivers nothing.
+const TF_MS: Record<Timeframe, number> = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
 const FUT_DATA = "https://fapi.binance.com/futures/data";
 
 // Depth streams follow the same split: futures depth lives under /public.
@@ -71,6 +72,27 @@ export const binance: ExchangeConnector = {
       quoteVolume: +(r[7] as string),
       closed: Number(r[6]) < now,
     }));
+  },
+
+  async getCandlesRange(symbol, marketType, tf: Timeframe, fromMs, toMs) {
+    const out: Candle[] = [];
+    let start = fromMs;
+    for (let page = 0; page < 500 && start < toMs; page++) {
+      const rows = await get<unknown[][]>(`${REST[marketType]}/klines?symbol=${symbol}&interval=${tf}&startTime=${start}&endTime=${toMs - 1}&limit=1000`);
+      if (!rows.length) break;
+      for (const r of rows) {
+        out.push({
+          time: Math.floor(Number(r[0]) / 1000), open: +(r[1] as string), high: +(r[2] as string), low: +(r[3] as string), close: +(r[4] as string),
+          volume: +(r[5] as string), quoteVolume: +(r[7] as string), closed: true,
+        });
+      }
+      const nextStart = Number(rows[rows.length - 1][0]) + 1;
+      if (nextStart <= start) break; // no progress: never loop forever
+      start = nextStart;
+      if (rows.length < 1000) break;
+    }
+    const now = Date.now();
+    return out.filter((c) => c.time * 1000 < toMs && c.time * 1000 + TF_MS[tf] <= now); // drop the still-forming candle
   },
 
   async getOrderBookSnapshot(symbol, marketType, limit) {

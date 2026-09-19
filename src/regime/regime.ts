@@ -146,9 +146,9 @@ export function classifyRegime(candles: Candle[], tf: Timeframe, opts: { nowMs?:
   const vs: VolumeState | null = vol?.state ?? null;
   if (trending && vs === "CONTRACTION") notes.push("The trend is running on contracting volume: less participation behind the move.");
   if (trending && vs === "CLIMAX") notes.push("Volume climax inside a trend: can mark exhaustion or acceleration; wait for follow-through.");
-  if (trend === "RANGE" && volatility === "SQUEEZE") notes.push("The range is compressing: a breakout is more likely, but its direction is not known.");
-  if (trend === "RANGE" && volTrend === "EXPANDING") notes.push("Range with rising volatility: expect false breaks.");
-  if (volatility === "EXTREME") notes.push("Volatility is in the top 5% of recent history: stops and position sizing need extra room.");
+  if (trend === "RANGE" && volatility === "SQUEEZE") notes.push("Volatility is compressed. In backtests on BTC, ETH and SOL, moves over the following hours were on average smaller than usual after a squeeze, not larger, so a breakout is not implied. Direction is unknown either way.");
+  if (trend === "RANGE" && volTrend === "EXPANDING") notes.push("Range, but volatility is rising: recent swings are widening.");
+  if (volatility === "EXTREME") notes.push("Volatility is in the top 5% of recent history. In backtests, price ranges over the following hours were well above average after this state, so stops and position sizing need extra room.");
   const f = opts.ctx?.fundingClass, o = opts.ctx?.oiRegime;
   if (up && f === "EXTREMELY_POSITIVE") notes.push("Funding is extremely positive: longs are crowded, so the uptrend is vulnerable to sharp flushes.");
   if (down && f === "EXTREMELY_NEGATIVE") notes.push("Funding is extremely negative: shorts are crowded, so the downtrend is vulnerable to squeezes.");
