@@ -6,6 +6,7 @@ export interface ExchangeConnector {
   listMarkets(): Promise<CoinListing[]>;
   getCandles(symbol: string, marketType: MarketType, tf: Timeframe, limit: number): Promise<Candle[]>;
   getTicker24h(symbol: string, marketType: MarketType): Promise<Ticker24h>;
+  getOrderBookSnapshot?(symbol: string, marketType: MarketType, limit: number): Promise<{ lastUpdateId: number; bids: [number, number][]; asks: [number, number][] }>;
   /** Perp-only data; connectors without it simply leave these undefined. */
   derivatives?: {
     getSnapshot(symbol: string): Promise<DerivativesSnapshot>;

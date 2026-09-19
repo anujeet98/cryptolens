@@ -10,6 +10,8 @@ import { analyzeFunding } from "@/analysis/funding";
 import { analyzeOi } from "@/analysis/openInterest";
 import { DerivativesPanel } from "@/components/DerivativesPanel";
 import { useDerivatives, useOiSeries } from "@/hooks/useDerivatives";
+import { OrderBookPanel } from "@/components/OrderBookPanel";
+import { useOrderBook } from "@/hooks/useOrderBook";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
@@ -60,6 +62,7 @@ export default function Home() {
     const m = Math.floor(ms / 60000);
     return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m ${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}s`;
   })();
+  const ob = useOrderBook(symbol, mt);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -106,6 +109,7 @@ export default function Home() {
         </div>
       </section>
 
+      <OrderBookPanel ob={ob} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
       <DerivativesPanel st={deriv} funding={funding} oi={oi} symbol={perpSymbol} now={now} nextFundingIn={nextFundingIn} />
       <MomentumVolumePanel m={momentum} v={volume} windows={volWindows} ticker={live.ticker} tf={tf} />
       <TechnicalsPanel t={tech} mtfRsi={mtfRsi} tf={tf} />
