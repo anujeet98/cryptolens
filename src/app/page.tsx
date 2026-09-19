@@ -6,6 +6,10 @@ import { computeMomentum } from "@/analysis/momentum";
 import { analyzeVolume } from "@/analysis/volume";
 import { MomentumVolumePanel } from "@/components/MomentumVolumePanel";
 import { useVolumeWindows } from "@/hooks/useVolumeWindows";
+import { analyzeFunding } from "@/analysis/funding";
+import { analyzeOi } from "@/analysis/openInterest";
+import { DerivativesPanel } from "@/components/DerivativesPanel";
+import { useDerivatives, useOiSeries } from "@/hooks/useDerivatives";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
@@ -45,6 +49,17 @@ export default function Home() {
   const momentum = useMemo(() => computeMomentum(live.candles), [live.candles]);
   const volume = useMemo(() => analyzeVolume(live.candles, tf, now), [live.candles, tf, now]);
   const volWindows = useVolumeWindows(symbol, mt);
+  const perpSymbol = pick("perp")?.symbol ?? null; // derivatives always come from the perp, even when viewing spot
+  const deriv = useDerivatives(perpSymbol);
+  const oiSeries = useOiSeries(perpSymbol, tf);
+  const funding = useMemo(() => (deriv.data ? analyzeFunding(deriv.data.funding, deriv.data.snapshot.fundingRate) : null), [deriv.data]);
+  const oi = useMemo(() => (deriv.data ? analyzeOi(deriv.data.oi5m, deriv.data.snapshot) : null), [deriv.data]);
+  const nextFundingIn = (() => {
+    const ms = (deriv.data?.snapshot.nextFundingTime ?? 0) - now;
+    if (ms <= 0) return "—";
+    const m = Math.floor(ms / 60000);
+    return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m ${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}s`;
+  })();
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -62,7 +77,8 @@ export default function Home() {
         <span className="num text-xs text-muted">{symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}</span>
       </header>
 
-      <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0} />
+      <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0}
+        d={deriv.data ? { funding: deriv.data.snapshot.fundingRate, oiUsd: deriv.data.snapshot.openInterestUsd, oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct, ls: deriv.data.ls.at(-1)?.ratio } : undefined} />
 
       <section className="rounded border border-line bg-panel">
         <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
@@ -76,20 +92,21 @@ export default function Home() {
               <button key={p} onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))} className={seg(toggles[k])} style={toggles[k] ? { color: EMA_COLORS[p] } : undefined}>EMA{p}</button>
             );
           })}
-          {(["vwap", "bb", "swings", "rsi", "macd"] as const).map((k) => (
+          {(["vwap", "bb", "swings", "rsi", "macd", "oi", "funding"] as const).map((k) => (
             <button key={k} onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))} className={seg(toggles[k])}>
-              {k === "bb" ? "BB" : k === "swings" ? "Swings/SR" : k.toUpperCase()}
+              {k === "bb" ? "BB" : k === "swings" ? "Swings/SR" : k === "funding" ? "Funding" : k.toUpperCase()}
             </button>
           ))}
         </div>
         <div className="relative h-[720px]">
-          <PriceChart candles={live.candles} resetKey={`${symbol}:${mt}:${tf}`} toggles={toggles} />
+          <PriceChart candles={live.candles} resetKey={`${symbol}:${mt}:${tf}:${oiSeries.length > 0}:${(deriv.data?.funding.length ?? 0) > 0}`} toggles={toggles} tf={tf} oi={oiSeries} funding={deriv.data?.funding ?? []} />
           {live.state === "error" && (
             <div className="absolute inset-0 grid place-items-center text-sm text-bear">{live.error}</div>
           )}
         </div>
       </section>
 
+      <DerivativesPanel st={deriv} funding={funding} oi={oi} symbol={perpSymbol} now={now} nextFundingIn={nextFundingIn} />
       <MomentumVolumePanel m={momentum} v={volume} windows={volWindows} ticker={live.ticker} tf={tf} />
       <TechnicalsPanel t={tech} mtfRsi={mtfRsi} tf={tf} />
     </main>

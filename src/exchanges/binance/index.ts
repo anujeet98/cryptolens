@@ -1,5 +1,5 @@
 import type { ExchangeConnector } from "../types";
-import type { Candle, CoinListing, MarketRef, MarketType, Ticker24h, Timeframe } from "@/types/market";
+import type { Candle, CoinListing, DerivativesSnapshot, FundingPoint, LongShortPoint, MarketRef, MarketType, OiPeriod, OiPoint, Ticker24h, Timeframe } from "@/types/market";
 
 const REST = {
   spot: "https://api.binance.com/api/v3",
@@ -8,6 +8,8 @@ const REST = {
 
 // Futures split its streams by path: /market (ticker, kline, markPrice, liquidations) and /public (bookTicker, depth).
 // The legacy unrouted /stream endpoint connects but delivers nothing.
+const FUT_DATA = "https://fapi.binance.com/futures/data";
+
 export const WS = {
   spot: "wss://stream.binance.com:9443/stream",
   perp: "wss://fstream.binance.com/market/stream",
@@ -63,6 +65,36 @@ export const binance: ExchangeConnector = {
       quoteVolume: +(r[7] as string),
       closed: Number(r[6]) < now,
     }));
+  },
+
+  derivatives: {
+    async getSnapshot(symbol): Promise<DerivativesSnapshot> {
+      const [p, oi] = await Promise.all([
+        get<Record<string, string | number>>(`${REST.perp}/premiumIndex?symbol=${symbol}`),
+        get<Record<string, string>>(`${REST.perp}/openInterest?symbol=${symbol}`),
+      ]);
+      const mark = +p.markPrice;
+      return {
+        exchange: "binance", symbol, timestamp: Date.now(),
+        markPrice: mark, indexPrice: +p.indexPrice, fundingRate: +p.lastFundingRate,
+        nextFundingTime: Number(p.nextFundingTime),
+        openInterest: +oi.openInterest, openInterestUsd: +oi.openInterest * mark,
+      };
+    },
+    async getFundingHistory(symbol, limit): Promise<FundingPoint[]> {
+      const rows = await get<{ fundingTime: number; fundingRate: string }[]>(`${REST.perp}/fundingRate?symbol=${symbol}&limit=${limit}`);
+      return rows.map((r) => ({ time: Math.floor(r.fundingTime / 1000), rate: +r.fundingRate }));
+    },
+    async getOpenInterestHistory(symbol, period: OiPeriod, limit): Promise<OiPoint[]> {
+      const rows = await get<{ sumOpenInterest: string; sumOpenInterestValue: string; timestamp: number }[]>(
+        `${FUT_DATA}/openInterestHist?symbol=${symbol}&period=${period}&limit=${limit}`);
+      return rows.map((r) => ({ time: Math.floor(r.timestamp / 1000), oi: +r.sumOpenInterest, oiUsd: +r.sumOpenInterestValue }));
+    },
+    async getLongShortRatio(symbol, period: OiPeriod, limit): Promise<LongShortPoint[]> {
+      const rows = await get<{ longShortRatio: string; longAccount: string; shortAccount: string; timestamp: number }[]>(
+        `${FUT_DATA}/globalLongShortAccountRatio?symbol=${symbol}&period=${period}&limit=${limit}`);
+      return rows.map((r) => ({ time: Math.floor(r.timestamp / 1000), ratio: +r.longShortRatio, longPct: +r.longAccount, shortPct: +r.shortAccount }));
+    },
   },
 
   async getTicker24h(symbol, marketType: MarketType): Promise<Ticker24h> {
