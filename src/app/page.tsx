@@ -17,6 +17,9 @@ import { useTradeFlow } from "@/hooks/useTradeFlow";
 import { LiquidationsPanel } from "@/components/LiquidationsPanel";
 import { useLiquidations } from "@/hooks/useLiquidations";
 import { CrossExchangePanel } from "@/components/CrossExchangePanel";
+import { RegimePanel } from "@/components/RegimePanel";
+import { useMtfRegime } from "@/hooks/useMtfRegime";
+import { classifyRegime } from "@/regime/regime";
 import { useCrossExchange } from "@/hooks/useCrossExchange";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
@@ -62,6 +65,11 @@ export default function Home() {
   const oiSeries = useOiSeries(perpSymbol, tf);
   const funding = useMemo(() => (deriv.data ? analyzeFunding(deriv.data.funding, deriv.data.snapshot.fundingRate) : null), [deriv.data]);
   const oi = useMemo(() => (deriv.data ? analyzeOi(deriv.data.oi5m, deriv.data.snapshot) : null), [deriv.data]);
+  const mtfRegime = useMtfRegime(symbol, mt);
+  const regime = useMemo(
+    () => classifyRegime(live.candles, tf, { nowMs: now, ctx: { fundingClass: funding?.class, oiRegime: oi?.windows.find((w) => w.label === "1h")?.regime } }),
+    [live.candles, tf, now, funding, oi],
+  );
   const nextFundingIn = (() => {
     const ms = (deriv.data?.snapshot.nextFundingTime ?? 0) - now;
     if (ms <= 0) return "—";
@@ -91,6 +99,8 @@ export default function Home() {
 
       <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0}
         d={deriv.data ? { funding: deriv.data.snapshot.fundingRate, oiUsd: deriv.data.snapshot.openInterestUsd, oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct, ls: deriv.data.ls.at(-1)?.ratio } : undefined} />
+
+      <RegimePanel r={regime} mtf={mtfRegime} tf={tf} />
 
       <section className="rounded border border-line bg-panel">
         <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
