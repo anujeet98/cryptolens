@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 11 — backtesting: walk-forward evaluation of the dashboard's own signals, with findings. On top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime and the history recorder.
+**Status:** Phase 12 — volatility and risk forecast: expected price range over the next few hours, calibrated and scored out of sample. On top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime, the history recorder and backtesting.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.
@@ -28,6 +28,7 @@ npm run dev   # http://localhost:3000
 - `src/exchanges/bitget` — Bitget v2 connector (spot + USDT-margined perp, no API key; no OI history endpoint)
 - `src/crossexchange` — pure venue comparison (funding normalised to 8h, basis vs reference, OI/volume share), unit-tested
 - `src/storage` — SQLite recorder core (minute aggregator, schema/migrations, queries, coverage), unit-tested
+- `src/risk` — expected-range forecast table and helpers (calibrated by `npm run calibrate-risk`), unit-tested
 - `src/backtest` — walk-forward signal study and strategy simulator (pure, unit-tested)
 - `scripts/backtest.ts` — `npm run backtest`
 - `scripts/record.ts` — the recorder process (`npm run record`)
@@ -70,3 +71,12 @@ npm run backtest -- ETHUSDT 4h 2024-01-01 2026-01-01
 - The **volatility label works at what it claims**: forward range rises monotonically SQUEEZE < LOW < NORMAL < HIGH < EXTREME on every dataset.
 - **A squeeze does not imply a breakout**: ranges after a squeeze were below average everywhere. The regime notes were corrected accordingly.
 - Descriptive panels remain useful for context and risk sizing. Directional prediction from these inputs is not supported by the evidence, which matters for the roadmap.
+
+## Expected range (risk forecast)
+Phase 11 found the trend and momentum labels carry no directional information but that volatility is genuinely forecastable. So the dashboard forecasts **how far price tends to travel**, not which way.
+
+- **Definition.** Range = highest high minus lowest low over the next *h* bars, relative to the entry open. Forecast = (multiple from a calibrated table) x current ATR%. Shown as median / 80th / 90th percentile over 4, 12 and 24 bars.
+- **Calibration** (`npm run calibrate-risk -- 1h`): quantiles of forward-range / ATR% over ~2 years of BTC, ETH and SOL on 15m, 1h and 4h, averaged with equal weight across timeframes. The multiples were nearly identical across timeframes, so one table serves all.
+- **Scored out of sample** (fit on the first 60% of each series, tested on the last 40%): the median, 80th and 90th percentile figures held 47-53%, 77-86% and 88-93% of the time across nine timeframe x horizon combinations. **The upper tail ran slightly short on 15m and 1h (about 88% for the 90th percentile)**, so it is "roughly 1 in 8 exceed", not a guarantee. The UI states this.
+- **Regime conditioning was tried and rejected.** Per-volatility-regime multipliers gained little (about 0.5% pinball loss at 4 bars, up to 5% at 24 bars on 15m/1h) and got *worse* on 4h. Only the direction was consistent (low volatility tends to expand beyond current ATR, high volatility tends to settle back), so it appears as a qualitative hint and does not change the numbers.
+- **Stops.** A stop farther from entry than the 90th percentile range would rarely have been hit by noise alone. This is a valid upper bound because a one-directional move cannot exceed the total range. The reverse (a stop inside the typical range *will* be hit) is not claimed.
