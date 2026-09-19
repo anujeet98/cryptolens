@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 5 — order book + liquidity (Binance), on top of chart, indicators, volume, momentum, funding and OI.
+**Status:** Phase 6 — trade flow (Binance aggTrade: taker buy/sell delta, CVD, large prints), on top of chart, indicators, volume, momentum, funding, OI and order book.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.
@@ -22,4 +22,5 @@ npm run dev   # http://localhost:3000
 - `src/hooks/useLiveMarket.ts` — REST history + WebSocket stream with auto-reconnect
 - `src/indicators` — pure, unit-tested indicator math (`npm test`)
 - `src/analysis/technicals.ts` — turns candles into a structured technicals snapshot
+- `src/tradeflow` — rolling taker-flow engine (per-second buckets, CVD, large prints), unit-tested
 - `src/types` — common schema
