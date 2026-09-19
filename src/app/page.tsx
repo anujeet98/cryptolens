@@ -2,6 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeTechnicals } from "@/analysis/technicals";
 import { DEFAULT_TOGGLES, EMA_COLORS, PriceChart, type Toggles } from "@/components/PriceChart";
+import { computeMomentum } from "@/analysis/momentum";
+import { analyzeVolume } from "@/analysis/volume";
+import { MomentumVolumePanel } from "@/components/MomentumVolumePanel";
+import { useVolumeWindows } from "@/hooks/useVolumeWindows";
 import { TechnicalsPanel } from "@/components/TechnicalsPanel";
 import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
@@ -38,6 +42,9 @@ export default function Home() {
   const live = useLiveMarket(symbol, mt, tf);
   const mtfRsi = useMtfRsi(symbol, mt);
   const tech = useMemo(() => computeTechnicals(live.candles), [live.candles]);
+  const momentum = useMemo(() => computeMomentum(live.candles), [live.candles]);
+  const volume = useMemo(() => analyzeVolume(live.candles, tf, now), [live.candles, tf, now]);
+  const volWindows = useVolumeWindows(symbol, mt);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -83,6 +90,7 @@ export default function Home() {
         </div>
       </section>
 
+      <MomentumVolumePanel m={momentum} v={volume} windows={volWindows} ticker={live.ticker} tf={tf} />
       <TechnicalsPanel t={tech} mtfRsi={mtfRsi} tf={tf} />
     </main>
   );
