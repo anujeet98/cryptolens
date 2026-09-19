@@ -19,6 +19,9 @@ import { useLiquidations } from "@/hooks/useLiquidations";
 import { CrossExchangePanel } from "@/components/CrossExchangePanel";
 import { RegimePanel } from "@/components/RegimePanel";
 import { RiskPanel } from "@/components/RiskPanel";
+import { AlertsPanel } from "@/components/AlertsPanel";
+import { useAlerts } from "@/hooks/useAlerts";
+import { buildSnapshot, contextKey } from "@/alerts/snapshot";
 import { useMtfRegime } from "@/hooks/useMtfRegime";
 import { classifyRegime } from "@/regime/regime";
 import { useCrossExchange } from "@/hooks/useCrossExchange";
@@ -27,8 +30,9 @@ import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
 import { SymbolSearch } from "@/components/SymbolSearch";
 import { useLiveMarket } from "@/hooks/useLiveMarket";
-import { TIMEFRAMES, type CoinListing, type MarketType, type Timeframe } from "@/types/market";
+import { TIMEFRAMES, type Candle, type CoinListing, type MarketType, type Timeframe } from "@/types/market";
 
+const NO_CANDLES: Candle[] = [];
 const seg = (on: boolean) =>
   `rounded px-2.5 py-1 text-xs ${on ? "bg-accent/20 text-accent" : "text-muted hover:text-foreground"}`;
 
@@ -56,10 +60,13 @@ export default function Home() {
   const mt: MarketType = sel?.marketType ?? market;
 
   const live = useLiveMarket(symbol, mt, tf);
+  // After a switch the hook briefly still holds the previous coin's data; only trust data loaded for what is on screen.
+  const liveOk = live.key === contextKey(symbol, mt, tf);
+  const candles = liveOk ? live.candles : NO_CANDLES;
   const mtfRsi = useMtfRsi(symbol, mt);
-  const tech = useMemo(() => computeTechnicals(live.candles), [live.candles]);
-  const momentum = useMemo(() => computeMomentum(live.candles), [live.candles]);
-  const volume = useMemo(() => analyzeVolume(live.candles, tf, now), [live.candles, tf, now]);
+  const tech = useMemo(() => computeTechnicals(candles), [candles]);
+  const momentum = useMemo(() => computeMomentum(candles), [candles]);
+  const volume = useMemo(() => analyzeVolume(candles, tf, now), [candles, tf, now]);
   const volWindows = useVolumeWindows(symbol, mt);
   const perpSymbol = pick("perp")?.symbol ?? null; // derivatives always come from the perp, even when viewing spot
   const deriv = useDerivatives(perpSymbol);
@@ -68,8 +75,8 @@ export default function Home() {
   const oi = useMemo(() => (deriv.data ? analyzeOi(deriv.data.oi5m, deriv.data.snapshot) : null), [deriv.data]);
   const mtfRegime = useMtfRegime(symbol, mt);
   const regime = useMemo(
-    () => classifyRegime(live.candles, tf, { nowMs: now, ctx: { fundingClass: funding?.class, oiRegime: oi?.windows.find((w) => w.label === "1h")?.regime } }),
-    [live.candles, tf, now, funding, oi],
+    () => classifyRegime(candles, tf, { nowMs: now, ctx: { fundingClass: funding?.class, oiRegime: oi?.windows.find((w) => w.label === "1h")?.regime } }),
+    [candles, tf, now, funding, oi],
   );
   const nextFundingIn = (() => {
     const ms = (deriv.data?.snapshot.nextFundingTime ?? 0) - now;
@@ -82,6 +89,9 @@ export default function Home() {
   const liq = useLiquidations(perpSymbol);
   const xch = useCrossExchange(base);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
+  const livePrice = liveOk ? live.ticker?.price ?? candles.at(-1)?.close ?? null : null;
+  const alertSnap = buildSnapshot({ symbol, market: mt, tf, ts: now, perpSymbol, liveKey: live.key, candles, regime, liq: liq.snap, fundingClass: funding?.class ?? null });
+  const alerts = useAlerts(alertSnap, { symbol, market: mt, price: livePrice });
 
   return (
     <main className="flex min-h-screen flex-col gap-3 p-3">
@@ -96,13 +106,15 @@ export default function Home() {
           ))}
         </div>
         <span className="num text-xs text-muted">{symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}</span>
+        {alerts.unread > 0 && <button onClick={alerts.markRead} className="ml-auto rounded bg-warn/20 px-2.5 py-1 text-xs text-warn" title="Mark alerts as read">🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}</button>}
       </header>
 
       <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0}
         d={deriv.data ? { funding: deriv.data.snapshot.fundingRate, oiUsd: deriv.data.snapshot.openInterestUsd, oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct, ls: deriv.data.ls.at(-1)?.ratio } : undefined} />
 
       <RegimePanel r={regime} mtf={mtfRegime} tf={tf} />
-      <RiskPanel r={regime} price={live.ticker?.price ?? live.candles.at(-1)?.close ?? null} tf={tf} />
+      <RiskPanel r={regime} price={livePrice} tf={tf} />
+      <AlertsPanel a={alerts} symbol={symbol} market={mt} tf={tf} price={livePrice} now={now} />
 
       <section className="rounded border border-line bg-panel">
         <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">

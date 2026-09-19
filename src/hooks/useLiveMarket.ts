@@ -6,6 +6,8 @@ import type { Candle, MarketType, Ticker24h, Timeframe } from "@/types/market";
 export type ConnState = "loading" | "live" | "reconnecting" | "error";
 
 export interface LiveMarket {
+  /** `symbol:market:tf` that `candles` and `ticker` belong to. Empty while loading. After a switch, the previous coin's data lingers for one render, so consumers must compare this to what they asked for. */
+  key: string;
   candles: Candle[];
   ticker: Ticker24h | null;
   state: ConnState;
@@ -16,6 +18,7 @@ export interface LiveMarket {
 /** Loads REST history, then keeps it current with Binance WebSocket kline + ticker streams. */
 export function useLiveMarket(symbol: string, market: MarketType, tf: Timeframe): LiveMarket {
   const [candles, setCandles] = useState<Candle[]>([]);
+  const [dataKey, setDataKey] = useState("");
   const [ticker, setTicker] = useState<Ticker24h | null>(null);
   const [state, setState] = useState<ConnState>("loading");
   const [lastMsgAt, setLast] = useState(0);
@@ -33,6 +36,7 @@ export function useLiveMarket(symbol: string, market: MarketType, tf: Timeframe)
       setError(undefined);
       setCandles([]);
       setTicker(null);
+      setDataKey("");
     });
 
     const q = `symbol=${symbol}&market=${market}`;
@@ -96,6 +100,7 @@ export function useLiveMarket(symbol: string, market: MarketType, tf: Timeframe)
         if (disposed) return;
         setCandles(cs);
         setTicker(tk);
+        setDataKey(`${symbol}:${market}:${tf}`);
         setLast(Date.now());
         connect();
       } catch (e) {
@@ -113,5 +118,5 @@ export function useLiveMarket(symbol: string, market: MarketType, tf: Timeframe)
     };
   }, [symbol, market, tf]);
 
-  return { candles, ticker, state, lastMsgAt, error };
+  return { key: dataKey, candles, ticker, state, lastMsgAt, error };
 }

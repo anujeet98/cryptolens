@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 12 — volatility and risk forecast: expected price range over the next few hours, calibrated and scored out of sample. On top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime, the history recorder and backtesting.
+**Status:** Phase 13 — alerts (signal alerts for the coin on screen and price-level alerts for any coin, edge-triggered with hysteresis). The planned roadmap is now complete. On top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime, the history recorder, backtesting and the risk forecast.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.
@@ -28,6 +28,7 @@ npm run dev   # http://localhost:3000
 - `src/exchanges/bitget` — Bitget v2 connector (spot + USDT-margined perp, no API key; no OI history endpoint)
 - `src/crossexchange` — pure venue comparison (funding normalised to 8h, basis vs reference, OI/volume share), unit-tested
 - `src/storage` — SQLite recorder core (minute aggregator, schema/migrations, queries, coverage), unit-tested
+- `src/alerts` — edge-triggered alert engine and context-checked snapshot builder, unit-tested
 - `src/risk` — expected-range forecast table and helpers (calibrated by `npm run calibrate-risk`), unit-tested
 - `src/backtest` — walk-forward signal study and strategy simulator (pure, unit-tested)
 - `scripts/backtest.ts` — `npm run backtest`
@@ -80,3 +81,19 @@ Phase 11 found the trend and momentum labels carry no directional information bu
 - **Scored out of sample** (fit on the first 60% of each series, tested on the last 40%): the median, 80th and 90th percentile figures held 47-53%, 77-86% and 88-93% of the time across nine timeframe x horizon combinations. **The upper tail ran slightly short on 15m and 1h (about 88% for the 90th percentile)**, so it is "roughly 1 in 8 exceed", not a guarantee. The UI states this.
 - **Regime conditioning was tried and rejected.** Per-volatility-regime multipliers gained little (about 0.5% pinball loss at 4 bars, up to 5% at 24 bars on 15m/1h) and got *worse* on 4h. Only the direction was consistent (low volatility tends to expand beyond current ATR, high volatility tends to settle back), so it appears as a qualitative hint and does not change the numbers.
 - **Stops.** A stop farther from entry than the 90th percentile range would rarely have been hit by noise alone. This is a valid upper bound because a one-directional move cannot exceed the total range. The reverse (a stop inside the typical range *will* be hit) is not claimed.
+
+## Alerts
+An alerts panel under the risk forecast. Two kinds:
+
+- **Signal alerts** for the coin and timeframe on screen: volatility turns EXTREME, an unusually large recent move (last 4 bars beyond the historical 90th percentile for that ATR), a liquidation burst, and funding extreme. Each carries an evidence tag: *backtested* (volatility, range), *descriptive* (liquidation burst) or *untested* (funding, off by default).
+- **Price levels** ("rises above" / "falls below") for any coin. Levels for coins that are not on screen are checked by polling their price every 5 seconds. One-shot: removed when they fire.
+
+Delivery: an in-page list with a "new" count (also in the tab title while the page is in the background), browser notifications if you allow them, and an optional beep.
+
+**Design rules**
+- **Edge-triggered.** An alert fires when a condition *turns* true, never because it was already true. The first observation in any context (page load, new coin, new timeframe) only primes the state.
+- **Hysteresis.** After firing, the condition must stay false for 5 minutes before it can re-arm, and the same alert never repeats within 15 minutes, so a label flickering at a threshold does not spam.
+- **Missing data is not "clear".** If an input is unavailable the rule keeps its state.
+- **Stale data is refused.** After a coin or timeframe switch the market hook briefly still holds the previous coin's candles and price. Alert inputs are only used when tagged with the exact `symbol:market:tf` on screen (`src/alerts/snapshot.ts`), and liquidation data must be for the same symbol.
+
+**Limits.** Alerts run in the page, so they only fire while it is open; browsers throttle timers in background tabs, so checks there can lag by up to about a minute. A background alerting service is not built. Alerts say nothing about direction: the backtests found no directional edge in these signals.
