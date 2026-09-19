@@ -86,7 +86,7 @@ jobs:
           # The CLI makes more calls than one project lookup; a narrowly scoped token can be refused on some. Show which.
           if ! vercel pull --yes --environment=production --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
             echo "::warning::vercel pull is refused for this token. Failing API calls:"
-            vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --debug 2>&1 | grep -iE "(GET|POST|PUT|PATCH) https|status|forbidden|unauthorized|not authorized|scope|error" | head -20 || true
+            vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --debug 2>&1 | grep -iE "(GET|POST|PUT|PATCH) https|←|status|forbidden|unauthorized|not authorized|scope|error" | head -20 || true
           fi
       - name: Deploy preview and smoke test it
         id: deploy
@@ -158,7 +158,7 @@ jobs:
           # The CLI makes more calls than one project lookup; a narrowly scoped token can be refused on some. Show which.
           if ! vercel pull --yes --environment=production --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
             echo "::warning::vercel pull is refused for this token. Failing API calls:"
-            vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --debug 2>&1 | grep -iE "(GET|POST|PUT|PATCH) https|status|forbidden|unauthorized|not authorized|scope|error" | head -20 || true
+            vercel pull --yes --environment=production --token "$VERCEL_TOKEN" --debug 2>&1 | grep -iE "(GET|POST|PUT|PATCH) https|←|status|forbidden|unauthorized|not authorized|scope|error" | head -20 || true
           fi
       - name: Stage, smoke test, promote, verify (rolls back on failure)
         id: deploy
