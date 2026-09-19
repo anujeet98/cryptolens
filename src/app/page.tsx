@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
-import { PriceChart } from "@/components/PriceChart";
+import { useEffect, useMemo, useState } from "react";
+import { computeTechnicals } from "@/analysis/technicals";
+import { DEFAULT_TOGGLES, EMA_COLORS, PriceChart, type Toggles } from "@/components/PriceChart";
+import { TechnicalsPanel } from "@/components/TechnicalsPanel";
+import { useMtfRsi } from "@/hooks/useMtfRsi";
 import { SummaryBar } from "@/components/SummaryBar";
 import { SymbolSearch } from "@/components/SymbolSearch";
 import { useLiveMarket } from "@/hooks/useLiveMarket";
@@ -13,6 +16,7 @@ export default function Home() {
   const [base, setBase] = useState("BTC");
   const [market, setMarket] = useState<MarketType>("perp");
   const [tf, setTf] = useState<Timeframe>("15m");
+  const [toggles, setToggles] = useState<Toggles>(DEFAULT_TOGGLES);
   const [coins, setCoins] = useState<CoinListing[]>([]);
   const [now, setNow] = useState(() => Date.now());
 
@@ -32,6 +36,8 @@ export default function Home() {
   const mt: MarketType = sel?.marketType ?? market;
 
   const live = useLiveMarket(symbol, mt, tf);
+  const mtfRsi = useMtfRsi(symbol, mt);
+  const tech = useMemo(() => computeTechnicals(live.candles), [live.candles]);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
 
   return (
@@ -56,14 +62,28 @@ export default function Home() {
           {TIMEFRAMES.map((t) => (
             <button key={t} onClick={() => setTf(t)} className={seg(tf === t)}>{t === "1d" ? "1D" : t}</button>
           ))}
+          <span className="mx-2 h-4 w-px bg-line" />
+          {([9, 20, 50, 100, 200] as const).map((p) => {
+            const k = `ema${p}` as keyof Toggles;
+            return (
+              <button key={p} onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))} className={seg(toggles[k])} style={toggles[k] ? { color: EMA_COLORS[p] } : undefined}>EMA{p}</button>
+            );
+          })}
+          {(["vwap", "bb", "swings", "rsi", "macd"] as const).map((k) => (
+            <button key={k} onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))} className={seg(toggles[k])}>
+              {k === "bb" ? "BB" : k === "swings" ? "Swings/SR" : k.toUpperCase()}
+            </button>
+          ))}
         </div>
-        <div className="relative h-[560px]">
-          <PriceChart candles={live.candles} resetKey={`${symbol}:${mt}:${tf}`} />
+        <div className="relative h-[720px]">
+          <PriceChart candles={live.candles} resetKey={`${symbol}:${mt}:${tf}`} toggles={toggles} />
           {live.state === "error" && (
             <div className="absolute inset-0 grid place-items-center text-sm text-bear">{live.error}</div>
           )}
         </div>
       </section>
+
+      <TechnicalsPanel t={tech} mtfRsi={mtfRsi} tf={tf} />
     </main>
   );
 }
