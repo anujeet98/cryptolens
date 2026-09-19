@@ -58,12 +58,12 @@ describe("classifyRegime", () => {
     expect(base.notes.some((n) => n.includes("crowded"))).toBe(false);
   });
 
-  it("warns about false breaks when a range is heating up", () => {
+  it("describes a range whose volatility is rising, without predicting a breakout", () => {
     const c = make((i) => 100 + 1.5 * Math.sin(i / 2.2), 300, 0.002).map((x, i) => (i >= 285 ? { ...x, high: x.high * 1.004, low: x.low * 0.996 } : x));
     const r = classifyRegime(c, "15m", { nowMs: NOW })!;
     expect(r.trend).toBe("RANGE");
     expect(r.volTrend).toBe("EXPANDING");
-    expect(r.notes.some((n) => n.includes("false breaks"))).toBe(true);
+    expect(r.notes.some((n) => n.includes("swings are widening"))).toBe(true);
   });
 
   it("flags a trend that has stalled after an impulse: capped strength, penalised confidence, explained", () => {

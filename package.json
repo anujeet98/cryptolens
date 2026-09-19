@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "record": "tsx scripts/record.ts",
-    "record:status": "tsx scripts/record-status.ts"
+    "record:status": "tsx scripts/record-status.ts",
+    "backtest": "tsx scripts/backtest.ts"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",
