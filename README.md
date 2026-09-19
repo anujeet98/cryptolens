@@ -124,7 +124,8 @@ NO_PROMOTE=1 scripts/deploy.sh production                        # dry run: stag
 1. `vercel login`, then `vercel link --project cryptolens` (creates the project; `.vercel/` and `.env.local` are git-ignored).
 2. Create a token at https://vercel.com/account/tokens with **Scope = Full Account** (set an expiry). A token scoped to a single team can read the project but is refused the user/team lookups the CLI makes first, and `vercel pull` fails with "Could not retrieve Project Settings". Store it: `pbpaste | tr -d "[:space:]" | gh secret set VERCEL_TOKEN`.
 3. Repo secrets `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` come from `.vercel/project.json`.
-4. Do **not** connect the repository in Vercel's Git integration: deploys come from the pipeline only.
+4. Turn the deploy jobs on: `gh variable set DEPLOY_ENABLED --body true`. Until then they are skipped (Verify still runs), and you deploy by hand with `scripts/deploy.sh production`.
+5. Do **not** connect the repository in Vercel's Git integration: deploys come from the pipeline only.
 
 ### Operating it
 ```bash

@@ -49,7 +49,8 @@ jobs:
     name: Preview deploy
     needs: verify
     # Forks and Dependabot cannot read repository secrets, so they only get the verify job.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    # Deploy jobs run only when the repo variable DEPLOY_ENABLED is 'true' (set it after VERCEL_TOKEN is in place; see the README).
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -118,7 +119,7 @@ jobs:
   production:
     name: Production deploy
     needs: verify
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
