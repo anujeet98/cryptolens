@@ -73,6 +73,16 @@ jobs:
           done
       - run: npm ci
       - run: npm install --global "vercel@${VERCEL_CLI_VERSION}" --no-audit --no-fund
+      - name: Check the deploy token can reach the project
+        run: |
+          who=$(vercel whoami --token "$VERCEL_TOKEN" 2>/dev/null | tail -1 || true)
+          name=$(vercel api "/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" --token "$VERCEL_TOKEN" 2>/dev/null | jq -r '.name // empty' 2>/dev/null || true)
+          echo "Token belongs to Vercel user: ${who:-unknown (token rejected)}"
+          if [ -z "$name" ]; then
+            echo "::error::The VERCEL_TOKEN secret cannot access this project. Create the token while logged in to the Vercel account that owns the project, with Scope set to the team that contains it, then run: gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+          echo "Token can access project: $name"
       - name: Deploy preview and smoke test it
         id: deploy
         run: scripts/deploy.sh preview
@@ -130,6 +140,16 @@ jobs:
           done
       - run: npm ci
       - run: npm install --global "vercel@${VERCEL_CLI_VERSION}" --no-audit --no-fund
+      - name: Check the deploy token can reach the project
+        run: |
+          who=$(vercel whoami --token "$VERCEL_TOKEN" 2>/dev/null | tail -1 || true)
+          name=$(vercel api "/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" --token "$VERCEL_TOKEN" 2>/dev/null | jq -r '.name // empty' 2>/dev/null || true)
+          echo "Token belongs to Vercel user: ${who:-unknown (token rejected)}"
+          if [ -z "$name" ]; then
+            echo "::error::The VERCEL_TOKEN secret cannot access this project. Create the token while logged in to the Vercel account that owns the project, with Scope set to the team that contains it, then run: gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+          echo "Token can access project: $name"
       - name: Stage, smoke test, promote, verify (rolls back on failure)
         id: deploy
         run: scripts/deploy.sh production
