@@ -13,17 +13,24 @@
     "record:status": "tsx scripts/record-status.ts",
     "backtest": "tsx scripts/backtest.ts",
     "calibrate-risk": "tsx scripts/calibrate-risk.ts",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "users": "tsx scripts/users.ts",
+    "auth:seed": "tsx scripts/auth-seed.ts",
+    "test:auth-e2e": "scripts/auth-e2e.sh"
   },
   "dependencies": {
+    "better-auth": "^1.7.5",
     "lightweight-charts": "^5.2.1",
     "next": "16.3.5",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.6",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

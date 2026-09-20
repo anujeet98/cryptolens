@@ -20,6 +20,8 @@ import { CrossExchangePanel } from "@/components/CrossExchangePanel";
 import { RegimePanel } from "@/components/RegimePanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { AlertsPanel } from "@/components/AlertsPanel";
+import { useAuthGuard } from "@/components/AuthProvider";
+import { UserMenu } from "@/components/UserMenu";
 import { useAlerts } from "@/hooks/useAlerts";
 import { buildSnapshot, contextKey } from "@/alerts/snapshot";
 import { useMtfRegime } from "@/hooks/useMtfRegime";
@@ -37,6 +39,7 @@ const seg = (on: boolean) =>
   `rounded px-2.5 py-1 text-xs ${on ? "bg-accent/20 text-accent" : "text-muted hover:text-foreground"}`;
 
 export default function Home() {
+  useAuthGuard(); // if authentication is on and the session is not valid, go to /sign-in
   const [base, setBase] = useState("BTC");
   const [market, setMarket] = useState<MarketType>("perp");
   const [tf, setTf] = useState<Timeframe>("15m");
@@ -106,7 +109,10 @@ export default function Home() {
           ))}
         </div>
         <span className="num text-xs text-muted">{symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}</span>
-        {alerts.unread > 0 && <button onClick={alerts.markRead} className="ml-auto rounded bg-warn/20 px-2.5 py-1 text-xs text-warn" title="Mark alerts as read">🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}</button>}
+        <div className="ml-auto flex items-center gap-3">
+          {alerts.unread > 0 && <button onClick={alerts.markRead} className="rounded bg-warn/20 px-2.5 py-1 text-xs text-warn" title="Mark alerts as read">🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}</button>}
+          <UserMenu />
+        </div>
       </header>
 
       <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0}

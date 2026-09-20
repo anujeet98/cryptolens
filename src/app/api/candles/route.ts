@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConnector } from "@/exchanges";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import { TIMEFRAMES, type ExchangeId, type MarketType, type Timeframe } from "@/types/market";
+import { withAuth } from "@/lib/auth/guard";
 
 export const maxDuration = 15;
 
-export async function GET(req: NextRequest) {
+async function handle(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const exchange = (p.get("exchange") ?? "binance") as ExchangeId;
   const symbol = (p.get("symbol") ?? "").toUpperCase();
@@ -20,3 +21,5 @@ export async function GET(req: NextRequest) {
     return fail(e);
   }
 }
+
+export const GET = withAuth(handle);
