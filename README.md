@@ -69,7 +69,7 @@ npm run backtest -- ETHUSDT 4h 2024-01-01 2026-01-01
 **Findings (Sept 2024 – Sept 2026, BTC/ETH/SOL 1h and BTC 4h):**
 - The **trend, momentum and EMA-alignment labels carry no significant directional information**: across all datasets, no label reached |t| >= 3 on signed forward returns.
 - Simple long/short/flat rules built on them **lose money after costs** and trail buy & hold (over-trading; momentum-follow flips thousands of times).
-- The **volatility label works at what it claims**: forward range rises monotonically SQUEEZE < LOW < NORMAL < HIGH < EXTREME on every dataset.
+- The **volatility label works at what it claims**: on all four datasets, HIGH and EXTREME were followed by above-average ranges and LOW and SQUEEZE by below-average ones. The strict ordering SQUEEZE < LOW < NORMAL < HIGH < EXTREME held on BTC and ETH 1h; on SOL 1h and BTC 4h, LOW and SQUEEZE swapped places at the bottom.
 - **A squeeze does not imply a breakout**: ranges after a squeeze were below average everywhere. The regime notes were corrected accordingly.
 - Descriptive panels remain useful for context and risk sizing. Directional prediction from these inputs is not supported by the evidence, which matters for the roadmap.
 
@@ -143,3 +143,14 @@ curl https://cryptolens-silk.vercel.app/api/health   # exchange reachability fro
 - **Vercel Hobby is for non-commercial use.** Ads or paid plans need Vercel Pro (or another host).
 - API routes have per-route `maxDuration` limits (15-30 s). Personal-scale traffic fits the free tier; each open dashboard polls several routes.
 - The history recorder (`npm run record`) is a long-running process and cannot run on serverless hosting.
+
+## License
+Copyright (C) 2026 Anujeet Swain.
+
+CryptoLens is free software under the **GNU Affero General Public License v3.0** (AGPL-3.0-only). See [LICENSE](LICENSE).
+
+In plain terms: you may use, study, modify and self-host it. If you run a **modified** version as a network service for other people, the AGPL requires you to offer them the corresponding source code of your modified version. That keeps improvements to the analytics open and stops a closed competing service from being built directly on this code.
+
+The hosted product's marketing site, sign-in and billing live in a separate private project and are not part of this repository.
+
+Contributions: this project may later offer a commercial license alongside the AGPL, so outside code contributions will need a contributor agreement first. Please open an issue to discuss before sending a pull request.
