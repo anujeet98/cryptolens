@@ -69,7 +69,7 @@ npm run backtest -- ETHUSDT 4h 2024-01-01 2026-01-01
 **Findings (Sept 2024 – Sept 2026, BTC/ETH/SOL 1h and BTC 4h):**
 - The **trend, momentum and EMA-alignment labels carry no significant directional information**: across all datasets, no label reached |t| >= 3 on signed forward returns.
 - Simple long/short/flat rules built on them **lose money after costs** and trail buy & hold (over-trading; momentum-follow flips thousands of times).
-- The **volatility label works at what it claims**: forward range rises monotonically SQUEEZE < LOW < NORMAL < HIGH < EXTREME on every dataset.
+- The **volatility label works at what it claims**: on all four datasets, HIGH and EXTREME were followed by above-average ranges and LOW and SQUEEZE by below-average ones. The strict ordering SQUEEZE < LOW < NORMAL < HIGH < EXTREME held on BTC and ETH 1h; on SOL 1h and BTC 4h, LOW and SQUEEZE swapped places at the bottom.
 - **A squeeze does not imply a breakout**: ranges after a squeeze were below average everywhere. The regime notes were corrected accordingly.
 - Descriptive panels remain useful for context and risk sizing. Directional prediction from these inputs is not supported by the evidence, which matters for the roadmap.
 
