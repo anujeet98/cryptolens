@@ -31,7 +31,7 @@ deploy_and_wait() {
   # CLI finds no repository; a bare copy of .vercel/ does not work because the output symlinks into node_modules.)
   local sha ref msg json; sha=$(git rev-parse HEAD 2>/dev/null || echo unknown); ref=${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)}; msg=$(git log -1 --format=%s 2>/dev/null | cut -c1-100 || true)
   json=$(GIT_DIR=/nonexistent V deploy --prebuilt --no-wait --format json -m "sha=$sha" -m "ref=$ref" -m "message=$msg" -m "by=${GITHUB_ACTOR:-local}" "$@" 2>/dev/null) || { log "vercel deploy failed"; return 1; }
-  DEPLOY_URL=$(echo "$json" | jq -r '.deployment.url // empty'); DEPLOY_ID=$(echo "$json" | jq -r '.deployment.id // empty')
+  DEPLOY_URL=$(echo "$json" | jq -r '.deployment.url // .url // empty'); DEPLOY_ID=$(echo "$json" | jq -r '.deployment.id // .id // empty')
   [ -n "$DEPLOY_URL" ] && [ -n "$DEPLOY_ID" ] || { log "could not read the deployment from: $(echo "$json" | head -c 300)"; return 1; }
   log "created $DEPLOY_URL ($DEPLOY_ID)"
   local last="" d state sub reason
