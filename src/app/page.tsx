@@ -21,6 +21,7 @@ import { RegimePanel } from "@/components/RegimePanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { useAuthGuard } from "@/components/AuthProvider";
+import { FeedbackButton } from "@/components/FeedbackDialog";
 import { UserMenu } from "@/components/UserMenu";
 import { useAlerts } from "@/hooks/useAlerts";
 import { buildSnapshot, contextKey } from "@/alerts/snapshot";
@@ -117,6 +118,7 @@ export default function Home() {
         <span className="num text-xs text-muted">{symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}</span>
         <div className="ml-auto flex items-center gap-3">
           {alerts.unread > 0 && <button onClick={alerts.markRead} className="rounded bg-warn/20 px-2.5 py-1 text-xs text-warn" title="Mark alerts as read">🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}</button>}
+          <FeedbackButton />
           <UserMenu />
         </div>
       </header>
