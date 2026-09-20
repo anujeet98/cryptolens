@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   description: "Real-time crypto market intelligence",
 };
 
+// Auth is decided from runtime env (secrets are not available at build time), so this layout must render per request.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   const authEnabled = authStatus(process.env).enabled;
   return (
