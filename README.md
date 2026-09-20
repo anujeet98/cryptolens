@@ -97,3 +97,14 @@ Delivery: an in-page list with a "new" count (also in the tab title while the pa
 - **Stale data is refused.** After a coin or timeframe switch the market hook briefly still holds the previous coin's candles and price. Alert inputs are only used when tagged with the exact `symbol:market:tf` on screen (`src/alerts/snapshot.ts`), and liquidation data must be for the same symbol.
 
 **Limits.** Alerts run in the page, so they only fire while it is open; browsers throttle timers in background tabs, so checks there can lag by up to about a minute. A background alerting service is not built. Alerts say nothing about direction: the backtests found no directional edge in these signals.
+
+## License
+Copyright (C) 2026 Anujeet Swain.
+
+CryptoLens is free software under the **GNU Affero General Public License v3.0** (AGPL-3.0-only). See [LICENSE](LICENSE).
+
+In plain terms: you may use, study, modify and self-host it. If you run a **modified** version as a network service for other people, the AGPL requires you to offer them the corresponding source code of your modified version. That keeps improvements to the analytics open and stops a closed competing service from being built directly on this code.
+
+The hosted product's marketing site, sign-in and billing live in a separate private project and are not part of this repository.
+
+Contributions: this project may later offer a commercial license alongside the AGPL, so outside code contributions will need a contributor agreement first. Please open an issue to discuss before sending a pull request.
