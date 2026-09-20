@@ -3,6 +3,8 @@ import { connectors } from "@/exchanges";
 import { fail } from "@/lib/api";
 import type { CoinListing } from "@/types/market";
 
+export const maxDuration = 30;
+
 export async function GET() {
   try {
     const results = await Promise.allSettled(Object.values(connectors).map((c) => c!.listMarkets()));

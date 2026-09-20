@@ -3,6 +3,8 @@ import { getConnector } from "@/exchanges";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import type { ExchangeId, MarketType } from "@/types/market";
 
+export const maxDuration = 15;
+
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const exchange = (p.get("exchange") ?? "binance") as ExchangeId;

@@ -3,7 +3,7 @@
 Real-time crypto market intelligence dashboard: live price, technicals, derivatives, order book, liquidations
 and an explainable market-state assessment. Public exchange data only, no API keys required.
 
-**Status:** Phase 13 — alerts (signal alerts for the coin on screen and price-level alerts for any coin, edge-triggered with hysteresis). The planned roadmap is now complete. On top of chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime, the history recorder, backtesting and the risk forecast.
+**Status:** Live at https://cryptolens-silk.vercel.app with a CI/CD pipeline (see Deployment). Analytics phases 1-13 complete: chart, indicators, volume, momentum, funding, OI, order book, trade flow, liquidations, cross-exchange, regime, history recorder, backtesting, risk forecast, alerts.
 
 Roadmap: indicators → volume/momentum → funding/OI → order book → trade flow → liquidations →
 cross-exchange → regime → prediction/scenarios → storage → backtesting → alerts.
@@ -97,6 +97,52 @@ Delivery: an in-page list with a "new" count (also in the tab title while the pa
 - **Stale data is refused.** After a coin or timeframe switch the market hook briefly still holds the previous coin's candles and price. Alert inputs are only used when tagged with the exact `symbol:market:tf` on screen (`src/alerts/snapshot.ts`), and liquidation data must be for the same symbol.
 
 **Limits.** Alerts run in the page, so they only fire while it is open; browsers throttle timers in background tabs, so checks there can lag by up to about a minute. A background alerting service is not built. Alerts say nothing about direction: the backtests found no directional edge in these signals.
+
+## Deployment
+Live at **https://cryptolens-silk.vercel.app** (Vercel, region `bom1` / Mumbai, free Hobby plan).
+
+**Why Mumbai.** Exchanges geo-block by IP: Binance answers HTTP 451 from US datacenters, and this app's API routes call the exchanges from the server. Region was chosen by testing, not assuming: from `bom1` Binance perp/spot, Bybit and Bitget are all reachable (`/api/health` reports it). The region is set in `vercel.json`.
+
+### The pipeline (`.github/workflows/pipeline.yml`)
+| Trigger | What runs |
+|---|---|
+| Pull request | **Verify** (typecheck, lint, tests, production build), then a **preview deployment** that is smoke-tested; the URL is commented on the PR |
+| Push to `main` | **Verify**, then the deploy gate below |
+
+**The production gate** (`scripts/deploy.sh production`): build, deploy **staged** (not live), smoke-test the staged URL, only then **promote**, then smoke-test the public URL and **roll back automatically** to the previous deployment if that fails. A failing smoke test leaves production untouched.
+
+`scripts/smoke.sh` checks what breaks in real life: exchanges reachable from the deployed region, live ticker, candles (count, order, validity), market listing, cross-exchange data, derivatives, and that the page and the app's own security headers are served (not a Vercel placeholder page). It fails if any core check fails and only warns for known non-blocking issues.
+
+Run the same things yourself:
+```bash
+BASE_URL=http://localhost:3000 scripts/smoke.sh                 # against any URL
+DEPLOYMENT_URL=https://<deployment>.vercel.app scripts/smoke.sh  # a protected Vercel deployment
+NO_PROMOTE=1 scripts/deploy.sh production                        # dry run: stage + smoke test, do not go live
+```
+
+### One-time setup (already done for this repo)
+1. `vercel login`, then `vercel link --project cryptolens` (creates the project; `.vercel/` and `.env.local` are git-ignored).
+2. Create a token at https://vercel.com/account/tokens with **Scope = Full Account** (set an expiry). A token scoped to a single team can read the project but is refused the user/team lookups the CLI makes first, and `vercel pull` fails with "Could not retrieve Project Settings". Store it: `pbpaste | tr -d "[:space:]" | gh secret set VERCEL_TOKEN`.
+3. Repo secrets `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` come from `.vercel/project.json`.
+4. Turn the deploy jobs on: `gh variable set DEPLOY_ENABLED --body true`. Until then they are skipped (Verify still runs), and you deploy by hand with `scripts/deploy.sh production`.
+5. Do **not** connect the repository in Vercel's Git integration: deploys come from the pipeline only.
+
+### Operating it
+```bash
+vercel rollback <deployment-url-or-id>    # instant rollback (about 3 s)
+vercel promote  <deployment-url-or-id>    # promote a staged/older deployment
+curl https://cryptolens-silk.vercel.app/api/health   # exchange reachability from the deployed region
+```
+
+### Troubleshooting
+- **Deployment `BLOCKED`: "commit author doesn't have permission".** Vercel refuses commit authors whose GitHub account is not the one linked to the Vercel account. `scripts/deploy.sh` avoids this by deploying the prebuilt output with no git author metadata (the commit is recorded as plain labels). The alternative is to link the matching GitHub account in Vercel (Account Settings, Authentication).
+- **Health check fails with "blocked for this region (HTTP 451)".** The region is geo-blocked by that exchange; change `regions` in `vercel.json`.
+- **`vercel deploy --skip-domain` hangs.** A staged deployment never reports `READY`, so the CLI's own wait never ends; the script uses `--no-wait` and polls the API instead.
+
+### Limits
+- **Vercel Hobby is for non-commercial use.** Ads or paid plans need Vercel Pro (or another host).
+- API routes have per-route `maxDuration` limits (15-30 s). Personal-scale traffic fits the free tier; each open dashboard polls several routes.
+- The history recorder (`npm run record`) is a long-running process and cannot run on serverless hosting.
 
 ## License
 Copyright (C) 2026 Anujeet Swain.

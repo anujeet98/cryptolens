@@ -6,6 +6,8 @@ import { fail } from "@/lib/api";
 import type { ExchangeRow } from "@/crossexchange/compare";
 import type { ExchangeId } from "@/types/market";
 
+export const maxDuration = 20;
+
 const BASE_RE = /^[A-Z0-9]{1,15}$/;
 
 /** Perp data for one coin from every connector that lists it. One venue failing never blanks the others. */

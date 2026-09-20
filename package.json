@@ -12,7 +12,8 @@
     "record": "tsx scripts/record.ts",
     "record:status": "tsx scripts/record-status.ts",
     "backtest": "tsx scripts/backtest.ts",
-    "calibrate-risk": "tsx scripts/calibrate-risk.ts"
+    "calibrate-risk": "tsx scripts/calibrate-risk.ts",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",
@@ -31,5 +32,8 @@
     "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }
