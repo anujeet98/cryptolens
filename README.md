@@ -98,6 +98,47 @@ Delivery: an in-page list with a "new" count (also in the tab title while the pa
 
 **Limits.** Alerts run in the page, so they only fire while it is open; browsers throttle timers in background tabs, so checks there can lag by up to about a minute. A background alerting service is not built. Alerts say nothing about direction: the backtests found no directional edge in these signals.
 
+## Authentication (optional)
+Sign-in uses [Better Auth](https://www.better-auth.com) with **OAuth providers only**: no passwords, no email links, nothing to reset or leak. Supported: Google, GitHub, Microsoft, Apple, X (Twitter), Discord, Facebook and LinkedIn.
+
+**It is off by default.** Authentication turns on only when a database, a signing secret and at least one provider are all configured (see `.env.example`). With none of them set, a self-hosted copy stays fully open and nothing below applies.
+
+### How the gate works (three layers)
+1. **`src/proxy.ts`** (fast path): anonymous page requests are redirected to `/sign-in`, anonymous API calls get `401`. It only checks that a session cookie *exists*, so on its own it is a convenience, not security.
+2. **Every data API route** verifies the session for real (`withAuth`), so a forged cookie is refused. Fails closed: if the session lookup errors, the request is refused.
+3. **The dashboard** redirects to `/sign-in` if its session turns out to be invalid.
+
+`/api/health` and the sign-in and auth endpoints stay public. The session cookie has a unique prefix (`cryptolens.session_token`), so it cannot collide with another Better Auth app on the same host. `POST` requests that carry a session are checked for a trusted `Origin` (CSRF), and the post-login destination only ever accepts same-site paths (no open redirect).
+
+### Setting it up
+1. **Database.** Any Postgres works. Free and reliable: [Neon](https://neon.tech). From the Vercel project: `vercel integration add neon --name cryptolens-db` (you must accept the marketplace terms interactively). It injects `DATABASE_URL` (pooled, used by the app) and `DATABASE_URL_UNPOOLED` (used by `npm run db:migrate`, because schema changes should not go through a pooler). **Choose the region closest to the app's Vercel region** (`bom1` is Mumbai, so Singapore): every query pays the round trip, measured at about 235 ms from India to `us-east-1`. TLS is pinned to `verify-full`. Neon's own "Neon Auth" variables can be ignored: this app uses Better Auth.
+2. **Secret and URL.** `BETTER_AUTH_SECRET` (`openssl rand -base64 48`) and `BETTER_AUTH_URL` (the public origin, no trailing slash).
+3. **Create the tables:** `DATABASE_URL=... BETTER_AUTH_SECRET=... GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... npm run db:migrate` (idempotent).
+4. **Register an OAuth app with each provider** you want, using the callback URL `<BETTER_AUTH_URL>/api/auth/callback/<provider>`, then set `<PROVIDER>_CLIENT_ID` and `<PROVIDER>_CLIENT_SECRET`. A provider with only one of the two is ignored.
+5. Set these as **Production** environment variables only (previews have different hostnames that providers would not recognise) and redeploy.
+
+| Provider | id | Notes |
+|---|---|---|
+| Google | `google` | Google Cloud Console, OAuth client (Web application) |
+| GitHub | `github` | GitHub OAuth App; one callback URL per app |
+| Microsoft | `microsoft` | Entra app registration; set `MICROSOFT_TENANT_ID` (default `common`) |
+| Apple | `apple` | Needs a paid Apple Developer membership; the client secret is a JWT you generate and must rotate |
+| X (Twitter) | `twitter` | OAuth 2.0 app; X does not always return an email address |
+| Discord | `discord` | Developer Portal application |
+| Facebook | `facebook` | Meta app; public use may need app review |
+| LinkedIn | `linkedin` | Enable "Sign In with LinkedIn using OpenID Connect" |
+
+**Turning it off** is just unsetting the environment variables and redeploying: the dashboard is open again.
+
+### Users and privacy
+Better Auth stores `user` (name, email, timestamps), `account` (which provider, provider account id and tokens), `session` (token, expiry, IP address and user agent) and `verification`. Nothing else. `npm run users` prints a read-only report (totals, sign-ups per day, provider mix, recent sign-ups with masked emails). Account deletion is enabled in the auth layer; the UI for it is still to do. Same email arriving from a second provider is linked automatically **only if the provider says the email is verified**.
+
+### Pipeline
+The deploy smoke test knows about the gate: it verifies that anonymous requests are refused and uses `SMOKE_TOKEN` (an `x-smoke-token` header, compared in constant time) for its own functional checks. Set `SMOKE_TOKEN` on the deployment and as a GitHub secret; leave it unset to disable the bypass.
+
+### Verifying it
+`npm test` covers the pure logic. `npm run test:auth-e2e` starts a throwaway local Postgres, builds the app with auth on and attacks it from outside (anonymous access, forged cookies, CSRF, open redirects, OAuth handshake, sign-out, smoke test): 45 checks. It uses dummy provider credentials, so it proves the gate and the *start* of each OAuth flow, not a completed login with a real provider.
+
 ## Deployment
 Live at **https://cryptolens-silk.vercel.app** (Vercel, region `bom1` / Mumbai, free Hobby plan).
 

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { connectors } from "@/exchanges";
 import { fail } from "@/lib/api";
 import type { CoinListing } from "@/types/market";
+import { withAuth } from "@/lib/auth/guard";
 
 export const maxDuration = 30;
 
-export async function GET() {
+async function handle() {
   try {
     const results = await Promise.allSettled(Object.values(connectors).map((c) => c!.listMarkets()));
     const merged = new Map<string, CoinListing>();
@@ -23,3 +24,5 @@ export async function GET() {
     return fail(e);
   }
 }
+
+export const GET = withAuth(handle);

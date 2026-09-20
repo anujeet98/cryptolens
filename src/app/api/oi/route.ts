@@ -3,13 +3,14 @@ import { getConnector } from "@/exchanges";
 import { cached } from "@/lib/cache";
 import { fail, SYMBOL_RE } from "@/lib/api";
 import type { ExchangeId, OiPeriod } from "@/types/market";
+import { withAuth } from "@/lib/auth/guard";
 
 export const maxDuration = 15;
 
 const PERIODS = ["5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"];
 
 /** Open-interest history at a given period, used to plot OI under the price chart. */
-export async function GET(req: NextRequest) {
+async function handle(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const exchange = (p.get("exchange") ?? "binance") as ExchangeId;
   const symbol = (p.get("symbol") ?? "").toUpperCase();
@@ -23,3 +24,5 @@ export async function GET(req: NextRequest) {
     return fail(e);
   }
 }
+
+export const GET = withAuth(handle);

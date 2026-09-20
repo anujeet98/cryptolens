@@ -5,13 +5,14 @@ import { cached } from "@/lib/cache";
 import { fail } from "@/lib/api";
 import type { ExchangeRow } from "@/crossexchange/compare";
 import type { ExchangeId } from "@/types/market";
+import { withAuth } from "@/lib/auth/guard";
 
 export const maxDuration = 20;
 
 const BASE_RE = /^[A-Z0-9]{1,15}$/;
 
 /** Perp data for one coin from every connector that lists it. One venue failing never blanks the others. */
-export async function GET(req: NextRequest) {
+async function handle(req: NextRequest) {
   const base = (req.nextUrl.searchParams.get("base") ?? "").toUpperCase();
   if (!BASE_RE.test(base)) return fail("invalid params", 400);
   try {
@@ -48,3 +49,5 @@ export async function GET(req: NextRequest) {
     return fail(e);
   }
 }
+
+export const GET = withAuth(handle);

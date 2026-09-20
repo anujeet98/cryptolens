@@ -12,12 +12,15 @@ fails=0
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; fails=$((fails + 1)); }
 
+# When the deployment has authentication on, automated checks present SMOKE_TOKEN (a server-side secret) in this header.
+AUTH_ARGS=(); [ -n "${SMOKE_TOKEN:-}" ] && AUTH_ARGS=(-H "x-smoke-token: $SMOKE_TOKEN")
+
 # fetch PATH -> body on stdout. Non-2xx or transport errors print nothing and return non-zero.
 fetch() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --fail --max-time 40 2>/dev/null
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>/dev/null
   else
-    curl -sS --fail --max-time 40 "${BASE_URL%/}$1" 2>/dev/null
+    curl -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
 }
 # Like fetch, but keeps the body of non-2xx responses: /api/health answers 503 with the reason attached.
@@ -30,9 +33,9 @@ fetch_any() {
 }
 headers() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sSI --max-time 40 2>/dev/null
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>/dev/null
   else
-    curl -sSI --max-time 40 "${BASE_URL%/}$1" 2>/dev/null
+    curl -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
 }
 
@@ -49,6 +52,21 @@ else
   reason=$(echo "${body:-}" | jq -r '[.exchanges[]? | select(.ok | not) | "\(.id): \(.error)"] | join("; ")' 2>/dev/null)
   [ -n "$reason" ] || reason="no valid health response (got: $(echo "${body:-nothing}" | tr -d '\n' | cut -c1-120))"
   fail "health: core exchanges NOT reachable from this deployment: $reason"
+fi
+
+# 1b. Authentication gate. Only meaningful when the deployment reports auth as enabled.
+raw() {  # raw PATH -> "<status> <redirect-target>" for an ANONYMOUS request (never sends the smoke token)
+  if [ -n "${DEPLOYMENT_URL:-}" ]; then vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 2>/dev/null
+  else curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 "${BASE_URL%/}$1" 2>/dev/null; fi
+}
+if [ "$(echo "${body:-}" | jq -r '.auth.enabled // false' 2>/dev/null)" = "true" ]; then
+  pass "auth: enabled (providers: $(echo "$body" | jq -r '.auth.providers | join(", ")'))"
+  [ -n "${SMOKE_TOKEN:-}" ] || fail "auth: SMOKE_TOKEN is not set, so the functional checks below cannot get past the gate"
+  a=$(raw "/api/ticker?symbol=BTCUSDT&market=perp"); [ "${a%% *}" = "401" ] && pass "gate: an anonymous API request is refused (401)" || fail "gate: anonymous API request returned '${a%% *}', expected 401. THE DEPLOYMENT IS NOT PROTECTED"
+  p=$(raw "/"); { [ "${p%% *}" = "307" ] && [[ "$p" == *"/sign-in"* ]]; } && pass "gate: an anonymous page request is sent to /sign-in" || fail "gate: anonymous page request returned '$p', expected a 307 to /sign-in. THE DEPLOYMENT IS NOT PROTECTED"
+  a=$(raw "/sign-in"); [ "${a%% *}" = "200" ] && pass "gate: the sign-in page is reachable" || fail "gate: /sign-in returned '${a%% *}'"
+else
+  printf '  \033[33m!\033[0m auth: not enabled on this deployment (open access)\n'
 fi
 
 # 2. Live price
