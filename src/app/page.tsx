@@ -22,6 +22,7 @@ import { RiskPanel } from "@/components/RiskPanel";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { useAlerts } from "@/hooks/useAlerts";
 import { buildSnapshot, contextKey } from "@/alerts/snapshot";
+import { resolveHomeUrl } from "@/lib/home";
 import { useMtfRegime } from "@/hooks/useMtfRegime";
 import { classifyRegime } from "@/regime/regime";
 import { useCrossExchange } from "@/hooks/useCrossExchange";
@@ -33,6 +34,7 @@ import { useLiveMarket } from "@/hooks/useLiveMarket";
 import { TIMEFRAMES, type Candle, type CoinListing, type MarketType, type Timeframe } from "@/types/market";
 
 const NO_CANDLES: Candle[] = [];
+const HOME_URL = resolveHomeUrl(process.env.NEXT_PUBLIC_HOME_URL);
 const seg = (on: boolean) =>
   `rounded px-2.5 py-1 text-xs ${on ? "bg-accent/20 text-accent" : "text-muted hover:text-foreground"}`;
 
@@ -96,7 +98,11 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col gap-3 p-3">
       <header className="flex flex-wrap items-center gap-3 border-b border-line pb-3">
-        <span className="text-sm font-semibold tracking-wide">CRYPTO<span className="text-accent">LENS</span></span>
+        {HOME_URL ? (
+          <a href={HOME_URL} className="text-sm font-semibold tracking-wide transition-opacity hover:opacity-80" title="About CryptoLens" aria-label="CryptoLens, about this product">CRYPTO<span className="text-accent">LENS</span></a>
+        ) : (
+          <span className="text-sm font-semibold tracking-wide">CRYPTO<span className="text-accent">LENS</span></span>
+        )}
         <SymbolSearch value={base} onSelect={setBase} />
         <div className="flex gap-1">
           {(["perp", "spot"] as const).map((m) => (

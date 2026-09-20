@@ -144,6 +144,9 @@ curl https://cryptolens-silk.vercel.app/api/health   # exchange reachability fro
 - API routes have per-route `maxDuration` limits (15-30 s). Personal-scale traffic fits the free tier; each open dashboard polls several routes.
 - The history recorder (`npm run record`) is a long-running process and cannot run on serverless hosting.
 
+## Optional settings
+- `NEXT_PUBLIC_HOME_URL`: if set to an absolute http(s) URL, the logo in the header links there (used by the hosted product to point back to its landing page). Unset by default, so self-hosted copies show no link.
+
 ## License
 Copyright (C) 2026 Anujeet Swain.
 
