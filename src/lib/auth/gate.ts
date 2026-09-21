@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 
-/** Paths that never require a session: the sign-in page, the auth endpoints themselves, and the health check used by monitors and smoke tests. */
+/** Paths that never require a session: the sign-in page, the auth endpoints themselves, the health check used by monitors and smoke tests, and the landing page's contact form endpoint (its own origin check, honeypot and rate limits). */
 export function isPublicPath(pathname: string): boolean {
-  return pathname === "/sign-in" || pathname.startsWith("/sign-in/") || pathname.startsWith("/api/auth/") || pathname === "/api/auth" || pathname === "/api/health";
+  return pathname === "/sign-in" || pathname.startsWith("/sign-in/") || pathname.startsWith("/api/auth/") || pathname === "/api/auth" || pathname === "/api/health" || pathname === "/api/contact";
 }
 
 /**

@@ -102,6 +102,7 @@ Delivery: an in-page list with a "new" count (also in the tab title while the pa
 Signed-in users get a **Feedback** button in the header: a dialog with three tabs (Idea, Bug, Message). Submissions are stored in the same Postgres database (`feedback` table, created by `npm run db:migrate`), limited to 5 per user per hour, and removed with the account.
 - **Read them:** open `/admin/feedback` (only emails in `ADMIN_EMAILS`, and only when the provider verified the email; everyone else sees a 404) or run `npm run feedback` (new items) / `npm run feedback -- all` in a terminal with `DATABASE_URL` set. Both show the sender's email so you can reply.
 - **Set the admin:** add `ADMIN_EMAILS` (comma separated) in the environment, then redeploy.
+- **Website contact form:** the landing page posts to the public `POST /api/contact` (no sign-in needed) and messages land in a `contact` table, shown in the same inbox under **Contact** and in `npm run feedback`. It only accepts browsers from `CONTACT_ALLOWED_ORIGINS` (default: the origin of `NEXT_PUBLIC_HOME_URL`), has a hidden honeypot field, and limits each address to 3 messages an hour and the whole form to 200 a day. Addresses are stored only as a salted hash, never the raw IP.
 
 ## Authentication (optional)
 Sign-in uses [Better Auth](https://www.better-auth.com) with **OAuth providers only**: no passwords, no email links, nothing to reset or leak. Supported: Google, GitHub, Microsoft, Apple, X (Twitter), Discord, Facebook and LinkedIn.

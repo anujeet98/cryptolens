@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getAuth } from "@/lib/auth/server";
 import { authStatus } from "@/lib/auth/providers";
 import { isAdmin } from "@/lib/feedback/admin";
-import { listFeedback } from "@/lib/feedback/store";
+import { listInbox } from "@/lib/feedback/store";
 import { AdminFeedback } from "./AdminFeedback";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,6 @@ export default async function AdminFeedbackPage() {
   const auth = authStatus(process.env).enabled ? getAuth() : null;
   const session = await auth?.api.getSession({ headers: await headers() }).catch(() => null);
   if (!session || !isAdmin(session.user, process.env)) notFound();
-  const items = await listFeedback();
+  const items = await listInbox();
   return <AdminFeedback initial={items} />;
 }

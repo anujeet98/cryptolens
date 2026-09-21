@@ -1,5 +1,5 @@
 /**
- * Read what users sent through the in-app feedback dialog.   npm run feedback [-- new|all]
+ * Read what users sent through the in-app feedback dialog and the website contact form.   npm run feedback [-- all]
  * Read-only. Shows the sender's email so you can reply (this is your own database; do not paste it into public issues).
  */
 import { Pool } from "pg";
@@ -13,7 +13,13 @@ async function main() {
     const rows = (await pool.query(
       `select f.id, f.kind, f.title, f.body, f.page, f.status, f."createdAt" c, u.name, u.email
        from feedback f join "user" u on u.id = f."userId" ${all ? "" : "where f.status = 'new'"} order by f."createdAt" desc limit 50`)).rows;
-    console.log(`${rows.length} ${all ? "" : "new "}item(s), newest first\n`);
+    const contacts = (await pool.query(
+      `select id, name, email, message body, status, "createdAt" c from contact ${all ? "" : "where status = 'new'"} order by "createdAt" desc limit 50`)).rows;
+    console.log(`${rows.length} ${all ? "" : "new "}feedback item(s) and ${contacts.length} contact message(s), newest first\n`);
+    for (const r of contacts) {
+      console.log(`c#${r.id}  [contact, not signed in]  ${new Date(r.c).toISOString().slice(0, 16)}  ${r.name || "(no name)"} <${r.email}>`);
+      console.log(r.body.split("\n").map((l: string) => `  ${l}`).join("\n") + "\n");
+    }
     for (const r of rows) {
       console.log(`#${r.id}  [${r.kind}]  ${new Date(r.c).toISOString().slice(0, 16)}  ${r.name} <${r.email}>${r.page ? `  on ${r.page}` : ""}`);
       if (r.title) console.log(`  ${r.title}`);
