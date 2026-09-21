@@ -1,5 +1,17 @@
 import type { ExchangeConnector } from "../types";
-import type { Candle, CoinListing, DerivativesSnapshot, FundingPoint, LongShortPoint, MarketRef, MarketType, OiPeriod, OiPoint, Ticker24h, Timeframe } from "@/types/market";
+import type {
+  Candle,
+  CoinListing,
+  DerivativesSnapshot,
+  FundingPoint,
+  LongShortPoint,
+  MarketRef,
+  MarketType,
+  OiPeriod,
+  OiPoint,
+  Ticker24h,
+  Timeframe,
+} from "@/types/market";
 
 const REST = {
   spot: "https://api.binance.com/api/v3",
@@ -8,7 +20,15 @@ const REST = {
 
 // Futures split its streams by path: /market (ticker, kline, markPrice, liquidations) and /public (bookTicker, depth).
 // The legacy unrouted /stream endpoint connects but delivers nothing.
-const TF_MS: Record<Timeframe, number> = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
+const TF_MS: Record<Timeframe, number> = {
+  "1m": 60_000,
+  "5m": 300_000,
+  "15m": 900_000,
+  "30m": 1_800_000,
+  "1h": 3_600_000,
+  "4h": 14_400_000,
+  "1d": 86_400_000,
+};
 const FUT_DATA = "https://fapi.binance.com/futures/data";
 
 // Depth streams follow the same split: futures depth lives under /public.
@@ -28,8 +48,12 @@ async function get<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-interface SpotInfo { symbols: { symbol: string; baseAsset: string; quoteAsset: string; status: string }[] }
-interface PerpInfo { symbols: { symbol: string; baseAsset: string; quoteAsset: string; status: string; contractType: string }[] }
+interface SpotInfo {
+  symbols: { symbol: string; baseAsset: string; quoteAsset: string; status: string }[];
+}
+interface PerpInfo {
+  symbols: { symbol: string; baseAsset: string; quoteAsset: string; status: string; contractType: string }[];
+}
 
 let listCache: { at: number; data: CoinListing[] } | null = null;
 
@@ -78,12 +102,20 @@ export const binance: ExchangeConnector = {
     const out: Candle[] = [];
     let start = fromMs;
     for (let page = 0; page < 500 && start < toMs; page++) {
-      const rows = await get<unknown[][]>(`${REST[marketType]}/klines?symbol=${symbol}&interval=${tf}&startTime=${start}&endTime=${toMs - 1}&limit=1000`);
+      const rows = await get<unknown[][]>(
+        `${REST[marketType]}/klines?symbol=${symbol}&interval=${tf}&startTime=${start}&endTime=${toMs - 1}&limit=1000`,
+      );
       if (!rows.length) break;
       for (const r of rows) {
         out.push({
-          time: Math.floor(Number(r[0]) / 1000), open: +(r[1] as string), high: +(r[2] as string), low: +(r[3] as string), close: +(r[4] as string),
-          volume: +(r[5] as string), quoteVolume: +(r[7] as string), closed: true,
+          time: Math.floor(Number(r[0]) / 1000),
+          open: +(r[1] as string),
+          high: +(r[2] as string),
+          low: +(r[3] as string),
+          close: +(r[4] as string),
+          volume: +(r[5] as string),
+          quoteVolume: +(r[7] as string),
+          closed: true,
         });
       }
       const nextStart = Number(rows[rows.length - 1][0]) + 1;
@@ -96,7 +128,9 @@ export const binance: ExchangeConnector = {
   },
 
   async getOrderBookSnapshot(symbol, marketType, limit) {
-    const d = await get<{ lastUpdateId: number; bids: string[][]; asks: string[][] }>(`${REST[marketType]}/depth?symbol=${symbol}&limit=${limit}`);
+    const d = await get<{ lastUpdateId: number; bids: string[][]; asks: string[][] }>(
+      `${REST[marketType]}/depth?symbol=${symbol}&limit=${limit}`,
+    );
     const conv = (rows: string[][]) => rows.map((r) => [+r[0], +r[1]] as [number, number]);
     return { lastUpdateId: d.lastUpdateId, bids: conv(d.bids), asks: conv(d.asks) };
   },
@@ -109,25 +143,43 @@ export const binance: ExchangeConnector = {
       ]);
       const mark = +p.markPrice;
       return {
-        exchange: "binance", symbol, timestamp: Date.now(),
-        markPrice: mark, indexPrice: +p.indexPrice, fundingRate: +p.lastFundingRate,
+        exchange: "binance",
+        symbol,
+        timestamp: Date.now(),
+        markPrice: mark,
+        indexPrice: +p.indexPrice,
+        fundingRate: +p.lastFundingRate,
         nextFundingTime: Number(p.nextFundingTime),
-        openInterest: +oi.openInterest, openInterestUsd: +oi.openInterest * mark,
+        openInterest: +oi.openInterest,
+        openInterestUsd: +oi.openInterest * mark,
       };
     },
     async getFundingHistory(symbol, limit): Promise<FundingPoint[]> {
-      const rows = await get<{ fundingTime: number; fundingRate: string }[]>(`${REST.perp}/fundingRate?symbol=${symbol}&limit=${limit}`);
+      const rows = await get<{ fundingTime: number; fundingRate: string }[]>(
+        `${REST.perp}/fundingRate?symbol=${symbol}&limit=${limit}`,
+      );
       return rows.map((r) => ({ time: Math.floor(r.fundingTime / 1000), rate: +r.fundingRate }));
     },
     async getOpenInterestHistory(symbol, period: OiPeriod, limit): Promise<OiPoint[]> {
       const rows = await get<{ sumOpenInterest: string; sumOpenInterestValue: string; timestamp: number }[]>(
-        `${FUT_DATA}/openInterestHist?symbol=${symbol}&period=${period}&limit=${limit}`);
-      return rows.map((r) => ({ time: Math.floor(r.timestamp / 1000), oi: +r.sumOpenInterest, oiUsd: +r.sumOpenInterestValue }));
+        `${FUT_DATA}/openInterestHist?symbol=${symbol}&period=${period}&limit=${limit}`,
+      );
+      return rows.map((r) => ({
+        time: Math.floor(r.timestamp / 1000),
+        oi: +r.sumOpenInterest,
+        oiUsd: +r.sumOpenInterestValue,
+      }));
     },
     async getLongShortRatio(symbol, period: OiPeriod, limit): Promise<LongShortPoint[]> {
-      const rows = await get<{ longShortRatio: string; longAccount: string; shortAccount: string; timestamp: number }[]>(
-        `${FUT_DATA}/globalLongShortAccountRatio?symbol=${symbol}&period=${period}&limit=${limit}`);
-      return rows.map((r) => ({ time: Math.floor(r.timestamp / 1000), ratio: +r.longShortRatio, longPct: +r.longAccount, shortPct: +r.shortAccount }));
+      const rows = await get<
+        { longShortRatio: string; longAccount: string; shortAccount: string; timestamp: number }[]
+      >(`${FUT_DATA}/globalLongShortAccountRatio?symbol=${symbol}&period=${period}&limit=${limit}`);
+      return rows.map((r) => ({
+        time: Math.floor(r.timestamp / 1000),
+        ratio: +r.longShortRatio,
+        longPct: +r.longAccount,
+        shortPct: +r.shortAccount,
+      }));
     },
   },
 

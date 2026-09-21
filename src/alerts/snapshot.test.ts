@@ -6,17 +6,51 @@ import type { Regime } from "@/regime/regime";
 import type { Candle } from "@/types/market";
 
 const regime = (volatility: Regime["volatility"]): Regime => ({
-  trend: "RANGE", stalled: false, volatility, volTrend: "STEADY", trendScore: 0, confidence: 50, adx: 15, plusDI: 10, minusDI: 10,
-  efficiency: 0.2, atrPct: 0.2, atrPercentile: 50, factors: [], notes: [],
+  trend: "RANGE",
+  stalled: false,
+  volatility,
+  volTrend: "STEADY",
+  trendScore: 0,
+  confidence: 50,
+  adx: 15,
+  plusDI: 10,
+  minusDI: 10,
+  efficiency: 0.2,
+  atrPct: 0.2,
+  atrPercentile: 50,
+  factors: [],
+  notes: [],
 });
-const candles: Candle[] = Array.from({ length: 6 }, (_, i) => ({ time: i, open: 100, high: 101, low: 99, close: 100, volume: 1, quoteVolume: 100, closed: true }));
+const candles: Candle[] = Array.from({ length: 6 }, (_, i) => ({
+  time: i,
+  open: 100,
+  high: 101,
+  low: 99,
+  close: 100,
+  volume: 1,
+  quoteVolume: 100,
+  closed: true,
+}));
 const liq = (symbol: string | null, active: boolean): LiqSnapshot => ({
-  symbol, windows: [], recent: [], burst: { active, lastMinUsd: 1, avgMinUsd: 1, dominant: active ? "long" : null },
-  market: { longUsd: 0, shortUsd: 0, count: 0, top: [] }, collectedSec: 0,
+  symbol,
+  windows: [],
+  recent: [],
+  burst: { active, lastMinUsd: 1, avgMinUsd: 1, dominant: active ? "long" : null },
+  market: { longUsd: 0, shortUsd: 0, count: 0, top: [] },
+  collectedSec: 0,
 });
 const base = (o: Partial<SnapshotInput> = {}): SnapshotInput => ({
-  symbol: "CAPUSDT", market: "perp", tf: "15m", ts: 1000, perpSymbol: "CAPUSDT", liveKey: contextKey("CAPUSDT", "perp", "15m"),
-  candles, regime: regime("EXTREME"), liq: liq("CAPUSDT", false), fundingClass: "NEUTRAL", ...o,
+  symbol: "CAPUSDT",
+  market: "perp",
+  tf: "15m",
+  ts: 1000,
+  perpSymbol: "CAPUSDT",
+  liveKey: contextKey("CAPUSDT", "perp", "15m"),
+  candles,
+  regime: regime("EXTREME"),
+  liq: liq("CAPUSDT", false),
+  fundingClass: "NEUTRAL",
+  ...o,
 });
 
 describe("buildSnapshot", () => {
@@ -49,9 +83,24 @@ describe("buildSnapshot", () => {
   it("REGRESSION: switching to a coin that is already EXTREME must not raise a false 'turned EXTREME' alert", () => {
     const ON = { "vol-extreme": true, "range-spike": true, "liq-burst": true, "funding-extreme": true } as const;
     // User was on a calm BTC. The page switches to CAP; for one render the hook still holds BTC's candles under CAP's name.
-    let st = evaluateSignals(ON, buildSnapshot(base({ symbol: "BTCUSDT", perpSymbol: "BTCUSDT", liveKey: contextKey("BTCUSDT", "perp", "15m"), regime: regime("LOW"), liq: liq("BTCUSDT", false), ts: 1000 }))!, emptyState()).state;
+    let st = evaluateSignals(
+      ON,
+      buildSnapshot(
+        base({
+          symbol: "BTCUSDT",
+          perpSymbol: "BTCUSDT",
+          liveKey: contextKey("BTCUSDT", "perp", "15m"),
+          regime: regime("LOW"),
+          liq: liq("BTCUSDT", false),
+          ts: 1000,
+        }),
+      )!,
+      emptyState(),
+    ).state;
     // The bug: that stale render produced a CAP snapshot with BTC's calm regime, priming CAP as "not extreme".
-    const stale = buildSnapshot(base({ liveKey: contextKey("BTCUSDT", "perp", "15m"), regime: regime("LOW"), ts: 2000 }));
+    const stale = buildSnapshot(
+      base({ liveKey: contextKey("BTCUSDT", "perp", "15m"), regime: regime("LOW"), ts: 2000 }),
+    );
     expect(stale).toBeNull(); // now refused, so the engine is never primed on the wrong coin's data
     // CAP's own data arrives and is already EXTREME: first observation primes, and nothing fires.
     const first = evaluateSignals(ON, buildSnapshot(base({ ts: 3000 }))!, st);

@@ -2,7 +2,14 @@ import { timingSafeEqual } from "node:crypto";
 
 /** Paths that never require a session: the sign-in page, the auth endpoints themselves, the health check used by monitors and smoke tests, and the landing page's contact form endpoint (its own origin check, honeypot and rate limits). */
 export function isPublicPath(pathname: string): boolean {
-  return pathname === "/sign-in" || pathname.startsWith("/sign-in/") || pathname.startsWith("/api/auth/") || pathname === "/api/auth" || pathname === "/api/health" || pathname === "/api/contact";
+  return (
+    pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/auth" ||
+    pathname === "/api/health" ||
+    pathname === "/api/contact"
+  );
 }
 
 /**
@@ -19,9 +26,13 @@ export function safeNext(value: string | null | undefined): string {
 export type GateDecision = { action: "allow" } | { action: "redirect"; to: string } | { action: "unauthorized" };
 
 export interface GateInput {
-  enabled: boolean; pathname: string; search?: string; hasSessionCookie: boolean;
+  enabled: boolean;
+  pathname: string;
+  search?: string;
+  hasSessionCookie: boolean;
   /** SMOKE_TOKEN configured on the server and the x-smoke-token header the caller sent. A match lets automated smoke tests through the proxy. */
-  smokeToken?: string; presentedToken?: string | null;
+  smokeToken?: string;
+  presentedToken?: string | null;
 }
 
 /**
@@ -45,7 +56,8 @@ export function gateDecision(i: GateInput): GateDecision {
 /** Constant-time string comparison, so a token cannot be guessed by timing. Different lengths compare false without leaking where they differ. */
 export function tokensMatch(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false;
-  const x = Buffer.from(a), y = Buffer.from(b);
+  const x = Buffer.from(a),
+    y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
@@ -59,7 +71,8 @@ export interface ApiAccessInput {
   getUser: () => Promise<{ id: string } | null>;
 }
 
-export type ApiAccess = { ok: true; via: "open" | "smoke-token" | "session"; userId?: string } | { ok: false; status: 401 };
+export type ApiAccess =
+  { ok: true; via: "open" | "smoke-token" | "session"; userId?: string } | { ok: false; status: 401 };
 
 /**
  * The STRICT check every API route runs. A valid session (looked up and verified, not just a cookie) or, for automated
@@ -71,6 +84,8 @@ export async function checkApiAccess(i: ApiAccessInput): Promise<ApiAccess> {
   try {
     const user = await i.getUser();
     if (user) return { ok: true, via: "session", userId: user.id };
-  } catch { /* a failing session lookup must never open the door */ }
+  } catch {
+    /* a failing session lookup must never open the door */
+  }
   return { ok: false, status: 401 };
 }

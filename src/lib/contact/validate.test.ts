@@ -11,7 +11,8 @@ describe("parseContact", () => {
     expect(parseContact({ ...ok, name: undefined }).ok).toBe(true);
   });
   it("requires a plausible email", () => {
-    for (const email of ["", "nope", "a@b", "a b@c.com", "<x@y.com>", "a@b.c", 5, undefined]) expect(parseContact({ ...ok, email }).ok).toBe(false);
+    for (const email of ["", "nope", "a@b", "a b@c.com", "<x@y.com>", "a@b.c", 5, undefined])
+      expect(parseContact({ ...ok, email }).ok).toBe(false);
     expect(parseContact({ ...ok, email: "x".repeat(200) + "@example.com" }).ok).toBe(false);
   });
   it("enforces message and name length", () => {
@@ -41,7 +42,12 @@ describe("parseContact", () => {
 
 describe("origins", () => {
   it("uses CONTACT_ALLOWED_ORIGINS and the landing origin, normalised", () => {
-    expect(allowedOrigins({ CONTACT_ALLOWED_ORIGINS: "https://a.example/, junk", NEXT_PUBLIC_HOME_URL: "https://site.example/path" })).toEqual(["https://a.example", "https://site.example"]);
+    expect(
+      allowedOrigins({
+        CONTACT_ALLOWED_ORIGINS: "https://a.example/, junk",
+        NEXT_PUBLIC_HOME_URL: "https://site.example/path",
+      }),
+    ).toEqual(["https://a.example", "https://site.example"]);
     expect(allowedOrigins({})).toEqual([]);
   });
   it("allows a listed origin and no-origin callers, refuses others", () => {

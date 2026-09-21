@@ -30,7 +30,10 @@ describe("parseFeedback", () => {
     expect(r.ok && r.value.body).toBe("line one\nline two here");
   });
   it("keeps only a same-site path for the page, without query or hash", () => {
-    const page = (p: unknown) => { const r = parseFeedback({ ...ok, page: p }); return r.ok ? r.value.page : "ERR"; };
+    const page = (p: unknown) => {
+      const r = parseFeedback({ ...ok, page: p });
+      return r.ok ? r.value.page : "ERR";
+    };
     expect(page("/account?token=abc#x")).toBe("/account");
     expect(page("https://evil.example/")).toBe("");
     expect(page("//evil.example")).toBe("");

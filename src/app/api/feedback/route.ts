@@ -6,7 +6,8 @@ import { addFeedback } from "@/lib/feedback/store";
 import { parseFeedback } from "@/lib/feedback/validate";
 
 export const maxDuration = 15;
-const json = (body: object, status: number) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+const json = (body: object, status: number) =>
+  NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
 async function handle(req: NextRequest) {
   // Feedback belongs to an account, so it exists only where sign-in is on (a self-hosted open copy has nowhere to store it).

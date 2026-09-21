@@ -8,8 +8,18 @@ const noise = (i: number) => Math.sin(i * 12.9898) * 0.5;
 const mk = (closes: number[], vol: (i: number) => number = () => 100): Candle[] =>
   closes.map((c, i) => {
     const o = i ? closes[i - 1] : c;
-    const hi = Math.max(o, c) * 1.001, lo = Math.min(o, c) * 0.999;
-    return { time: i * 900, open: o, high: hi, low: lo, close: c, volume: vol(i), quoteVolume: vol(i) * c, closed: true };
+    const hi = Math.max(o, c) * 1.001,
+      lo = Math.min(o, c) * 0.999;
+    return {
+      time: i * 900,
+      open: o,
+      high: hi,
+      low: lo,
+      close: c,
+      volume: vol(i),
+      quoteVolume: vol(i) * c,
+      closed: true,
+    };
   });
 
 describe("momentum", () => {
@@ -27,7 +37,9 @@ describe("momentum", () => {
     expect(Math.abs(m.score)).toBeLessThan(25);
   });
   it("rally that flattens reads as decelerating vs one still accelerating", () => {
-    const flatten = Array.from({ length: 120 }, (_, i) => (i < 116 ? 100 * 1.004 ** i : 100 * 1.004 ** 116 * (1 + 0.0004 * (i - 116))));
+    const flatten = Array.from({ length: 120 }, (_, i) =>
+      i < 116 ? 100 * 1.004 ** i : 100 * 1.004 ** 116 * (1 + 0.0004 * (i - 116)),
+    );
     const accel = Array.from({ length: 120 }, (_, i) => 100 * 1.004 ** i * (i > 100 ? 1.006 ** (i - 100) : 1));
     expect(computeMomentum(mk(flatten))!.trend).toBe("DECELERATING");
     expect(computeMomentum(mk(accel))!.accelerationPts).toBeGreaterThan(computeMomentum(mk(flatten))!.accelerationPts);
@@ -68,15 +80,24 @@ describe("volume", () => {
     expect(mid.projectedRelative).toBeCloseTo(mid.relativeVolume * 2, 8);
   });
   it("price up + volume down = weakening", () => {
-    const c = mk(px.map((p, i) => p + (i > 48 ? (i - 48) * 0.3 : 0)), (i) => (i > 54 ? 40 : 100));
+    const c = mk(
+      px.map((p, i) => p + (i > 48 ? (i - 48) * 0.3 : 0)),
+      (i) => (i > 54 ? 40 : 100),
+    );
     expect(analyzeVolume(c, "15m")!.priceVolume).toBe("WEAKENING_RALLY");
   });
   it("price down + volume up = strong selling", () => {
-    const c = mk(px.map((p, i) => p - (i > 48 ? (i - 48) * 0.3 : 0)), (i) => (i > 54 ? 300 : 100));
+    const c = mk(
+      px.map((p, i) => p - (i > 48 ? (i - 48) * 0.3 : 0)),
+      (i) => (i > 54 ? 300 : 100),
+    );
     expect(analyzeVolume(c, "15m")!.priceVolume).toBe("STRONG_SELLING");
   });
   it("windows compare against the preceding window", () => {
-    const m1 = mk(Array.from({ length: 500 }, () => 10), (i) => (i >= 495 ? 2 : 1));
+    const m1 = mk(
+      Array.from({ length: 500 }, () => 10),
+      (i) => (i >= 495 ? 2 : 1),
+    );
     const w = volumeWindows(m1);
     expect(w[0].label).toBe("5m");
     expect(w[0].ratio).toBeCloseTo(2, 8);

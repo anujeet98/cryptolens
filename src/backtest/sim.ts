@@ -27,10 +27,15 @@ export function simulate(candles: Candle[], desired: number[], start: number, op
   const cost = (opts.feeBps + opts.slipBps) / 10_000;
   const equity: number[] = [1];
   const rets: number[] = [];
-  let held = 0, trades = 0, exposed = 0, costPaid = 0;
+  let held = 0,
+    trades = 0,
+    exposed = 0,
+    costPaid = 0;
   for (let j = start + 1; j < candles.length; j++) {
     const next = desired[j - 1] ?? 0;
-    const prevClose = candles[j - 1].close, o = candles[j].open, c = candles[j].close;
+    const prevClose = candles[j - 1].close,
+      o = candles[j].open,
+      c = candles[j].close;
     let r: number;
     if (next !== held) {
       r = held * (o / prevClose - 1) + next * (c / o - 1);
@@ -46,14 +51,23 @@ export function simulate(candles: Candle[], desired: number[], start: number, op
     rets.push(r);
     equity.push(equity[equity.length - 1] * (1 + r));
   }
-  let peak = 1, dd = 0;
-  for (const e of equity) { peak = Math.max(peak, e); dd = Math.min(dd, e / peak - 1); }
+  let peak = 1,
+    dd = 0;
+  for (const e of equity) {
+    peak = Math.max(peak, e);
+    dd = Math.min(dd, e / peak - 1);
+  }
   const m = rets.length ? rets.reduce((a, b) => a + b, 0) / rets.length : 0;
   const sd = rets.length > 1 ? Math.sqrt(rets.reduce((s, x) => s + (x - m) ** 2, 0) / (rets.length - 1)) : 0;
   return {
-    equity, totalReturn: equity[equity.length - 1] - 1,
+    equity,
+    totalReturn: equity[equity.length - 1] - 1,
     buyHoldReturn: candles.length > start + 1 ? candles[candles.length - 1].close / candles[start].close - 1 : 0,
-    maxDrawdown: dd, trades, exposure: rets.length ? exposed / rets.length : 0,
-    sharpe: sd > 0 ? (m / sd) * Math.sqrt(opts.barsPerYear) : null, costPaid, bars: rets.length,
+    maxDrawdown: dd,
+    trades,
+    exposure: rets.length ? exposed / rets.length : 0,
+    sharpe: sd > 0 ? (m / sd) * Math.sqrt(opts.barsPerYear) : null,
+    costPaid,
+    bars: rets.length,
   };
 }

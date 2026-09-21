@@ -49,44 +49,122 @@ export function openDb(path: string = DEFAULT_DB_PATH): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;"); // WAL: the web app can read while the recorder writes
   const cur = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
-  if (cur > SCHEMA_VERSION) throw new Error(`Database schema v${cur} is newer than this code (v${SCHEMA_VERSION}); update the app.`);
+  if (cur > SCHEMA_VERSION)
+    throw new Error(`Database schema v${cur} is newer than this code (v${SCHEMA_VERSION}); update the app.`);
   for (let v = cur; v < SCHEMA_VERSION; v++) {
     db.exec("BEGIN");
     try {
       db.exec(MIGRATIONS[v]);
       db.exec(`PRAGMA user_version = ${v + 1}`);
       db.exec("COMMIT");
-    } catch (e) { db.exec("ROLLBACK"); throw e; }
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
   }
   return db;
 }
 
 export interface SnapshotRow {
-  symbol: string; ts: number;
-  open: number | null; high: number | null; low: number | null; close: number | null;
-  buyUsd: number; sellUsd: number; buyN: number; sellN: number; maxBuyUsd: number; maxSellUsd: number;
-  mark: number | null; indexPrice: number | null; fundingRate: number | null; oiUsd: number | null;
-  mid: number | null; spreadBps: number | null;
-  bidUsd10bp: number | null; askUsd10bp: number | null; bidUsd50bp: number | null; askUsd50bp: number | null;
+  symbol: string;
+  ts: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  buyUsd: number;
+  sellUsd: number;
+  buyN: number;
+  sellN: number;
+  maxBuyUsd: number;
+  maxSellUsd: number;
+  mark: number | null;
+  indexPrice: number | null;
+  fundingRate: number | null;
+  oiUsd: number | null;
+  mid: number | null;
+  spreadBps: number | null;
+  bidUsd10bp: number | null;
+  askUsd10bp: number | null;
+  bidUsd50bp: number | null;
+  askUsd50bp: number | null;
   flags: number;
 }
 
-export interface LiquidationRow { t: number; symbol: string; side: "long" | "short"; price: number; usd: number }
+export interface LiquidationRow {
+  t: number;
+  symbol: string;
+  side: "long" | "short";
+  price: number;
+  usd: number;
+}
 
-const SNAP_COLS = ["symbol", "ts", "open", "high", "low", "close", "buy_usd", "sell_usd", "buy_n", "sell_n", "max_buy_usd", "max_sell_usd", "mark", "index_price", "funding_rate", "oi_usd", "mid", "spread_bps", "bid_usd_10bp", "ask_usd_10bp", "bid_usd_50bp", "ask_usd_50bp", "flags"] as const;
+const SNAP_COLS = [
+  "symbol",
+  "ts",
+  "open",
+  "high",
+  "low",
+  "close",
+  "buy_usd",
+  "sell_usd",
+  "buy_n",
+  "sell_n",
+  "max_buy_usd",
+  "max_sell_usd",
+  "mark",
+  "index_price",
+  "funding_rate",
+  "oi_usd",
+  "mid",
+  "spread_bps",
+  "bid_usd_10bp",
+  "ask_usd_10bp",
+  "bid_usd_50bp",
+  "ask_usd_50bp",
+  "flags",
+] as const;
 
 /** Idempotent: writing the same (symbol, ts) again replaces it. */
 export function insertSnapshots(db: DatabaseSync, rows: SnapshotRow[]): void {
   if (!rows.length) return;
-  const st = db.prepare(`INSERT OR REPLACE INTO snapshots (${SNAP_COLS.join(",")}) VALUES (${SNAP_COLS.map(() => "?").join(",")})`);
+  const st = db.prepare(
+    `INSERT OR REPLACE INTO snapshots (${SNAP_COLS.join(",")}) VALUES (${SNAP_COLS.map(() => "?").join(",")})`,
+  );
   db.exec("BEGIN");
   try {
     for (const r of rows) {
-      st.run(r.symbol, r.ts, r.open, r.high, r.low, r.close, r.buyUsd, r.sellUsd, r.buyN, r.sellN, r.maxBuyUsd, r.maxSellUsd,
-        r.mark, r.indexPrice, r.fundingRate, r.oiUsd, r.mid, r.spreadBps, r.bidUsd10bp, r.askUsd10bp, r.bidUsd50bp, r.askUsd50bp, r.flags);
+      st.run(
+        r.symbol,
+        r.ts,
+        r.open,
+        r.high,
+        r.low,
+        r.close,
+        r.buyUsd,
+        r.sellUsd,
+        r.buyN,
+        r.sellN,
+        r.maxBuyUsd,
+        r.maxSellUsd,
+        r.mark,
+        r.indexPrice,
+        r.fundingRate,
+        r.oiUsd,
+        r.mid,
+        r.spreadBps,
+        r.bidUsd10bp,
+        r.askUsd10bp,
+        r.bidUsd50bp,
+        r.askUsd50bp,
+        r.flags,
+      );
     }
     db.exec("COMMIT");
-  } catch (e) { db.exec("ROLLBACK"); throw e; }
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 export function insertLiquidations(db: DatabaseSync, rows: LiquidationRow[]): void {
@@ -96,11 +174,19 @@ export function insertLiquidations(db: DatabaseSync, rows: LiquidationRow[]): vo
   try {
     for (const r of rows) st.run(r.t, r.symbol, r.side, r.price, r.usd);
     db.exec("COMMIT");
-  } catch (e) { db.exec("ROLLBACK"); throw e; }
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 /** Delete data older than the retention windows. Returns rows removed. */
-export function prune(db: DatabaseSync, nowSec: number, snapshotDays = 180, liquidationDays = 90): { snapshots: number; liquidations: number } {
+export function prune(
+  db: DatabaseSync,
+  nowSec: number,
+  snapshotDays = 180,
+  liquidationDays = 90,
+): { snapshots: number; liquidations: number } {
   const s = db.prepare("DELETE FROM snapshots WHERE ts < ?").run(nowSec - snapshotDays * 86400);
   const l = db.prepare("DELETE FROM liquidations WHERE t < ?").run((nowSec - liquidationDays * 86400) * 1000);
   return { snapshots: Number(s.changes), liquidations: Number(l.changes) };

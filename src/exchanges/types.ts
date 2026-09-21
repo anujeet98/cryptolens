@@ -1,4 +1,16 @@
-import type { Candle, CoinListing, DerivativesSnapshot, ExchangeId, FundingPoint, LongShortPoint, MarketType, OiPeriod, OiPoint, Ticker24h, Timeframe } from "@/types/market";
+import type {
+  Candle,
+  CoinListing,
+  DerivativesSnapshot,
+  ExchangeId,
+  FundingPoint,
+  LongShortPoint,
+  MarketType,
+  OiPeriod,
+  OiPoint,
+  Ticker24h,
+  Timeframe,
+} from "@/types/market";
 
 /** Every exchange implements this; the API layer never talks to an exchange directly. */
 export interface ExchangeConnector {
@@ -7,8 +19,18 @@ export interface ExchangeConnector {
   getCandles(symbol: string, marketType: MarketType, tf: Timeframe, limit: number): Promise<Candle[]>;
   getTicker24h(symbol: string, marketType: MarketType): Promise<Ticker24h>;
   /** Historical candles in [fromMs, toMs), oldest first, paginated internally. Only closed candles. */
-  getCandlesRange?(symbol: string, marketType: MarketType, tf: Timeframe, fromMs: number, toMs: number): Promise<Candle[]>;
-  getOrderBookSnapshot?(symbol: string, marketType: MarketType, limit: number): Promise<{ lastUpdateId: number; bids: [number, number][]; asks: [number, number][] }>;
+  getCandlesRange?(
+    symbol: string,
+    marketType: MarketType,
+    tf: Timeframe,
+    fromMs: number,
+    toMs: number,
+  ): Promise<Candle[]>;
+  getOrderBookSnapshot?(
+    symbol: string,
+    marketType: MarketType,
+    limit: number,
+  ): Promise<{ lastUpdateId: number; bids: [number, number][]; asks: [number, number][] }>;
   /** Perp-only data; connectors without it simply leave these undefined. */
   derivatives?: {
     getSnapshot(symbol: string): Promise<DerivativesSnapshot>;

@@ -31,7 +31,10 @@ export function useTradeFlow(symbol: string, market: MarketType): TradeFlowState
 
     const connect = () => {
       ws = new WebSocket(`${WS[market]}?streams=${symbol.toLowerCase()}@aggTrade`);
-      ws.onopen = () => { retry = 0; status = "live"; };
+      ws.onopen = () => {
+        retry = 0;
+        status = "live";
+      };
       ws.onmessage = (ev) => {
         const d = JSON.parse(ev.data).data;
         if (!d || d.e !== "aggTrade") return;
@@ -54,7 +57,12 @@ export function useTradeFlow(symbol: string, market: MarketType): TradeFlowState
     }, 500);
 
     connect();
-    return () => { dead = true; clearInterval(flush); clearTimeout(timer); ws?.close(); };
+    return () => {
+      dead = true;
+      clearInterval(flush);
+      clearTimeout(timer);
+      ws?.close();
+    };
   }, [symbol, market, key]);
 
   return st.key === key ? st : EMPTY(key);

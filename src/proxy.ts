@@ -18,7 +18,8 @@ export function proxy(req: NextRequest) {
     presentedToken: req.headers.get("x-smoke-token"),
   });
   if (d.action === "redirect") return NextResponse.redirect(new URL(d.to, req.url));
-  if (d.action === "unauthorized") return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+  if (d.action === "unauthorized")
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   return NextResponse.next();
 }
 

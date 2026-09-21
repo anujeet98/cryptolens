@@ -1,23 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { classifyRegime, confidenceOf, efficiencyRatio, mtfAlignment, percentileRank, trendOf, volRegimeOf } from "./regime";
+import {
+  classifyRegime,
+  confidenceOf,
+  efficiencyRatio,
+  mtfAlignment,
+  percentileRank,
+  trendOf,
+  volRegimeOf,
+} from "./regime";
 import type { Candle } from "@/types/market";
 
 const NOW = 1_700_000_000_000;
 /** Deterministic candles from a close function. Range per bar = `rng` of price; volume constant. */
 const make = (f: (i: number) => number, n = 300, rng = 0.002, vol: (i: number) => number = () => 1000): Candle[] =>
   Array.from({ length: n }, (_, i) => {
-    const c = f(i), o = i ? f(i - 1) : c;
-    return { time: NOW / 1000 - (n - i) * 900, open: o, high: Math.max(o, c) * (1 + rng / 2), low: Math.min(o, c) * (1 - rng / 2), close: c, volume: vol(i), quoteVolume: vol(i) * c, closed: true };
+    const c = f(i),
+      o = i ? f(i - 1) : c;
+    return {
+      time: NOW / 1000 - (n - i) * 900,
+      open: o,
+      high: Math.max(o, c) * (1 + rng / 2),
+      low: Math.min(o, c) * (1 - rng / 2),
+      close: c,
+      volume: vol(i),
+      quoteVolume: vol(i) * c,
+      closed: true,
+    };
   });
 const wobble = (i: number) => 1 + 0.0008 * Math.sin(i * 1.7); // small deterministic noise so bars are not perfectly regular
 
 describe("classifyRegime", () => {
   it("returns null with too little data", () => {
-    expect(classifyRegime(make((i) => 100 + i, 60), "15m", { nowMs: NOW })).toBeNull();
+    expect(
+      classifyRegime(
+        make((i) => 100 + i, 60),
+        "15m",
+        { nowMs: NOW },
+      ),
+    ).toBeNull();
   });
 
   it("calls a steady climb an uptrend with high confidence and an agreeing factor set", () => {
-    const r = classifyRegime(make((i) => 100 * 1.003 ** i * wobble(i)), "15m", { nowMs: NOW })!;
+    const r = classifyRegime(
+      make((i) => 100 * 1.003 ** i * wobble(i)),
+      "15m",
+      { nowMs: NOW },
+    )!;
     expect(r.trend === "UPTREND" || r.trend === "STRONG_UPTREND").toBe(true);
     expect(r.trendScore).toBeGreaterThan(40);
     expect(r.confidence).toBeGreaterThan(60);
@@ -26,14 +54,22 @@ describe("classifyRegime", () => {
   });
 
   it("mirrors for a steady decline", () => {
-    const r = classifyRegime(make((i) => 100 * 0.997 ** i * wobble(i)), "15m", { nowMs: NOW })!;
+    const r = classifyRegime(
+      make((i) => 100 * 0.997 ** i * wobble(i)),
+      "15m",
+      { nowMs: NOW },
+    )!;
     expect(r.trend === "DOWNTREND" || r.trend === "STRONG_DOWNTREND").toBe(true);
     expect(r.trendScore).toBeLessThan(-40);
     expect(r.confidence).toBeGreaterThan(60);
   });
 
   it("calls a sideways oscillation a range", () => {
-    const r = classifyRegime(make((i) => 100 + 1.5 * Math.sin(i / 2.2)), "15m", { nowMs: NOW })!;
+    const r = classifyRegime(
+      make((i) => 100 + 1.5 * Math.sin(i / 2.2)),
+      "15m",
+      { nowMs: NOW },
+    )!;
     expect(r.trend).toBe("RANGE");
     expect(r.adx).toBeLessThan(25);
     expect(Math.abs(r.trendScore)).toBeLessThan(40);
@@ -50,7 +86,10 @@ describe("classifyRegime", () => {
   it("adds context notes without changing the classification", () => {
     const c = make((i) => 100 * 1.003 ** i * wobble(i));
     const base = classifyRegime(c, "15m", { nowMs: NOW })!;
-    const ctx = classifyRegime(c, "15m", { nowMs: NOW, ctx: { fundingClass: "EXTREMELY_POSITIVE", oiRegime: "SHORT_COVERING" } })!;
+    const ctx = classifyRegime(c, "15m", {
+      nowMs: NOW,
+      ctx: { fundingClass: "EXTREMELY_POSITIVE", oiRegime: "SHORT_COVERING" },
+    })!;
     expect(ctx.trend).toBe(base.trend);
     expect(ctx.trendScore).toBe(base.trendScore);
     expect(ctx.notes.some((n) => n.includes("longs are crowded"))).toBe(true);
@@ -59,7 +98,9 @@ describe("classifyRegime", () => {
   });
 
   it("describes a range whose volatility is rising, without predicting a breakout", () => {
-    const c = make((i) => 100 + 1.5 * Math.sin(i / 2.2), 300, 0.002).map((x, i) => (i >= 285 ? { ...x, high: x.high * 1.004, low: x.low * 0.996 } : x));
+    const c = make((i) => 100 + 1.5 * Math.sin(i / 2.2), 300, 0.002).map((x, i) =>
+      i >= 285 ? { ...x, high: x.high * 1.004, low: x.low * 0.996 } : x,
+    );
     const r = classifyRegime(c, "15m", { nowMs: NOW })!;
     expect(r.trend).toBe("RANGE");
     expect(r.volTrend).toBe("EXPANDING");
@@ -75,13 +116,22 @@ describe("classifyRegime", () => {
     expect(r.stalled).toBe(true);
     expect(r.trend).not.toBe("STRONG_UPTREND");
     expect(r.notes.some((n) => n.includes("pausing"))).toBe(true);
-    const fresh = classifyRegime(make((i) => 100 * 1.003 ** i * wobble(i)), "15m", { nowMs: NOW })!;
+    const fresh = classifyRegime(
+      make((i) => 100 * 1.003 ** i * wobble(i)),
+      "15m",
+      { nowMs: NOW },
+    )!;
     expect(fresh.stalled).toBe(false);
     expect(r.confidence).toBeLessThan(fresh.confidence);
   });
 
   it("notes a trend on contracting volume", () => {
-    const c = make((i) => 100 * 1.003 ** i * wobble(i), 300, 0.002, (i) => (i > 298 ? 100 : 1000)); // only the latest bar is quiet vs the 20-bar average
+    const c = make(
+      (i) => 100 * 1.003 ** i * wobble(i),
+      300,
+      0.002,
+      (i) => (i > 298 ? 100 : 1000),
+    ); // only the latest bar is quiet vs the 20-bar average
     const r = classifyRegime(c, "15m", { nowMs: NOW })!;
     expect(r.notes.some((n) => n.includes("contracting volume"))).toBe(true);
   });

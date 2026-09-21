@@ -12,12 +12,18 @@ export function createAuth(env: Env) {
   for (const p of enabledProviders(env)) {
     social[p.id] = { clientId: p.clientId, clientSecret: p.clientSecret };
     if (p.id === "microsoft") social[p.id].tenantId = (env.MICROSOFT_TENANT_ID ?? "").trim() || "common";
-    if (p.id === "apple" && env.APPLE_APP_BUNDLE_IDENTIFIER) social[p.id].appBundleIdentifier = env.APPLE_APP_BUNDLE_IDENTIFIER.trim();
+    if (p.id === "apple" && env.APPLE_APP_BUNDLE_IDENTIFIER)
+      social[p.id].appBundleIdentifier = env.APPLE_APP_BUNDLE_IDENTIFIER.trim();
   }
 
   return betterAuth({
     // A small pool: serverless functions each hold their own, and Neon's pooled connection string multiplexes them.
-    database: new Pool({ connectionString: normalizeDatabaseUrl(env.DATABASE_URL), max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000 }),
+    database: new Pool({
+      connectionString: normalizeDatabaseUrl(env.DATABASE_URL),
+      max: 5,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 8_000,
+    }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: url,
     trustedOrigins: [url],

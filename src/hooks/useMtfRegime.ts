@@ -20,14 +20,19 @@ export function useMtfRegime(symbol: string, market: MarketType): MtfRegimes {
             if (!r.ok) return [tf, null] as const;
             const c: Candle[] = await r.json();
             return [tf, classifyRegime(c, tf)] as const;
-          } catch { return [tf, null] as const; }
+          } catch {
+            return [tf, null] as const;
+          }
         }),
       );
       if (!dead) setState({ key, v: Object.fromEntries(res.filter((x) => x[1] !== null)) as MtfRegimes });
     };
     run();
     const i = setInterval(run, 30_000);
-    return () => { dead = true; clearInterval(i); };
+    return () => {
+      dead = true;
+      clearInterval(i);
+    };
   }, [symbol, market, key]);
   return state.key === key ? state.v : {};
 }

@@ -5,7 +5,16 @@ import type { Candle } from "@/types/market";
 const series = (f: (i: number) => number, n = 260): Candle[] =>
   Array.from({ length: n }, (_, i) => {
     const c = f(i);
-    return { time: i * 900, open: c, high: c * 1.002, low: c * 0.998, close: c, volume: 100, quoteVolume: 100 * c, closed: true };
+    return {
+      time: i * 900,
+      open: c,
+      high: c * 1.002,
+      low: c * 0.998,
+      close: c,
+      volume: 100,
+      quoteVolume: 100 * c,
+      closed: true,
+    };
   });
 
 describe("computeTechnicals", () => {

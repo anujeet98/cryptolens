@@ -77,15 +77,31 @@ export function compareExchanges(input: ExchangeRow[], ref: ExchangeId = "binanc
   const markSpreadBps = m.length > 1 ? bps((Math.max(...m) - Math.min(...m)) / base.mark) : 0;
 
   const notes: string[] = [];
-  if (rows.some((r) => r.suspect)) notes.push(`${rows.filter((r) => r.suspect).map((r) => r.exchange).join(", ")}: mark price is >${SUSPECT_BPS / 100}% from ${base.exchange}, so the contract size probably differs. Excluded from totals and spreads.`);
+  if (rows.some((r) => r.suspect))
+    notes.push(
+      `${rows
+        .filter((r) => r.suspect)
+        .map((r) => r.exchange)
+        .join(
+          ", ",
+        )}: mark price is >${SUSPECT_BPS / 100}% from ${base.exchange}, so the contract size probably differs. Excluded from totals and spreads.`,
+    );
   if (valid.length > 1 && fundingSpread8hBps >= FUNDING_NOTE_BPS) {
     const hi = valid.reduce((a, b) => (b.funding8h > a.funding8h ? b : a));
     const lo = valid.reduce((a, b) => (b.funding8h < a.funding8h ? b : a));
-    notes.push(`Funding differs by ${fundingSpread8hBps.toFixed(1)} bps per 8h: ${hi.exchange} is highest, ${lo.exchange} lowest. Crowding on one venue is not necessarily crowding market-wide.`);
+    notes.push(
+      `Funding differs by ${fundingSpread8hBps.toFixed(1)} bps per 8h: ${hi.exchange} is highest, ${lo.exchange} lowest. Crowding on one venue is not necessarily crowding market-wide.`,
+    );
   }
-  if (valid.length > 1 && markSpreadBps >= MARK_NOTE_BPS) notes.push(`Mark prices are ${markSpreadBps.toFixed(1)} bps apart across venues, which is wider than usual for a liquid coin.`);
+  if (valid.length > 1 && markSpreadBps >= MARK_NOTE_BPS)
+    notes.push(
+      `Mark prices are ${markSpreadBps.toFixed(1)} bps apart across venues, which is wider than usual for a liquid coin.`,
+    );
   const top = valid.reduce<CompareRow | null>((a, b) => (!a || b.oiSharePct > a.oiSharePct ? b : a), null);
-  if (valid.length > 1 && top && top.oiSharePct >= CONCENTRATION_PCT) notes.push(`${top.exchange} holds ${top.oiSharePct.toFixed(0)}% of open interest among the venues shown, so its data dominates any single-venue read.`);
+  if (valid.length > 1 && top && top.oiSharePct >= CONCENTRATION_PCT)
+    notes.push(
+      `${top.exchange} holds ${top.oiSharePct.toFixed(0)}% of open interest among the venues shown, so its data dominates any single-venue read.`,
+    );
 
   return { ref: base.exchange, rows, oiTotalUsd, volumeTotalUsd, fundingSpread8hBps, markSpreadBps, notes };
 }

@@ -13,16 +13,22 @@ import { parseForceOrder } from "@/liquidations/liqs";
 import { DEFAULT_DB_PATH, openDb, prune } from "@/storage/db";
 import { Recorder } from "@/storage/recorder";
 
-const SYMBOLS = (process.argv.slice(2).length ? process.argv.slice(2) : ["BTCUSDT", "ETHUSDT"]).map((s) => s.toUpperCase());
+const SYMBOLS = (process.argv.slice(2).length ? process.argv.slice(2) : ["BTCUSDT", "ETHUSDT"]).map((s) =>
+  s.toUpperCase(),
+);
 const bad = SYMBOLS.find((s) => !/^[A-Z0-9]{2,20}$/.test(s));
-if (bad) { console.error(`Invalid symbol: ${bad}`); process.exit(1); }
+if (bad) {
+  console.error(`Invalid symbol: ${bad}`);
+  process.exit(1);
+}
 
 const DB_PATH = process.env.DB_PATH ?? DEFAULT_DB_PATH;
 const db = openDb(DB_PATH);
 const log = (m: string) => console.log(`${new Date().toISOString().slice(11, 19)} ${m}`);
 
 const deriv = binance.derivatives;
-if (!deriv || !binance.getOrderBookSnapshot) throw new Error("Binance connector is missing derivatives/order book support");
+if (!deriv || !binance.getOrderBookSnapshot)
+  throw new Error("Binance connector is missing derivatives/order book support");
 const recorder = new Recorder(db, SYMBOLS, {
   async sampleDerivs(symbol) {
     const s = await deriv.getSnapshot(symbol);
@@ -47,18 +53,31 @@ recorder.markDown(Date.now()); // we start mid-minute: that first minute is part
 function connect() {
   const streams = [...SYMBOLS.map((s) => `${s.toLowerCase()}@aggTrade`), "!forceOrder@arr"].join("/");
   ws = new WebSocket(`${WS.perp}?streams=${streams}`);
-  ws.onopen = () => { retry = 0; up = true; lastMsgAt = Date.now(); recorder.markUp(Date.now()); log(`stream up: ${SYMBOLS.join(", ")}`); };
+  ws.onopen = () => {
+    retry = 0;
+    up = true;
+    lastMsgAt = Date.now();
+    recorder.markUp(Date.now());
+    log(`stream up: ${SYMBOLS.join(", ")}`);
+  };
   ws.onmessage = (ev) => {
     lastMsgAt = Date.now();
     const d = JSON.parse(String(ev.data)).data;
     if (d?.e === "aggTrade") recorder.onTrade(d.s, d.T, +d.p, +d.q, !!d.m);
     else if (d?.e === "forceOrder") {
       const l = parseForceOrder(d);
-      if (l) { recorder.onLiquidation(l); liqCount++; }
+      if (l) {
+        recorder.onLiquidation(l);
+        liqCount++;
+      }
     }
   };
   ws.onclose = () => {
-    if (up) { up = false; recorder.markDown(Date.now()); log("stream down"); }
+    if (up) {
+      up = false;
+      recorder.markDown(Date.now());
+      log("stream down");
+    }
     if (stopping) return;
     setTimeout(connect, Math.min(1000 * 2 ** retry++, 15_000));
   };
@@ -66,7 +85,12 @@ function connect() {
 }
 
 // A silent socket is a dead socket: BTC trades every second, so 45s of nothing means reconnect.
-const watchdog = setInterval(() => { if (up && Date.now() - lastMsgAt > 45_000) { log("no data for 45s, reconnecting"); ws?.close(); } }, 15_000);
+const watchdog = setInterval(() => {
+  if (up && Date.now() - lastMsgAt > 45_000) {
+    log("no data for 45s, reconnecting");
+    ws?.close();
+  }
+}, 15_000);
 
 async function tick() {
   try {
@@ -82,17 +106,25 @@ async function tick() {
 let timer: ReturnType<typeof setTimeout>;
 function schedule() {
   const wait = 60_000 - (Date.now() % 60_000) + 1000;
-  timer = setTimeout(async () => { await tick(); if (!stopping) schedule(); }, wait);
+  timer = setTimeout(async () => {
+    await tick();
+    if (!stopping) schedule();
+  }, wait);
 }
 
-const pruneNow = () => { const p = prune(db, Math.floor(Date.now() / 1000)); if (p.snapshots || p.liquidations) log(`pruned ${p.snapshots} snapshots, ${p.liquidations} liquidations`); };
+const pruneNow = () => {
+  const p = prune(db, Math.floor(Date.now() / 1000));
+  if (p.snapshots || p.liquidations) log(`pruned ${p.snapshots} snapshots, ${p.liquidations} liquidations`);
+};
 pruneNow();
 const pruneTimer = setInterval(pruneNow, 24 * 3600_000);
 
 async function shutdown() {
   if (stopping) return;
   stopping = true;
-  clearTimeout(timer); clearInterval(watchdog); clearInterval(pruneTimer);
+  clearTimeout(timer);
+  clearInterval(watchdog);
+  clearInterval(pruneTimer);
   ws?.close();
   await tick(); // flush minutes that have fully elapsed
   db.close();

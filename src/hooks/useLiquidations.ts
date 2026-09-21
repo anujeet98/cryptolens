@@ -4,7 +4,11 @@ import { WS } from "@/exchanges/binance";
 import { LiqStore, parseForceOrder, type LiqSnapshot } from "@/liquidations/liqs";
 
 export type LiqStatus = "connecting" | "live" | "reconnecting";
-export interface LiquidationState { status: LiqStatus; snap: LiqSnapshot | null; lastEventAt: number }
+export interface LiquidationState {
+  status: LiqStatus;
+  snap: LiqSnapshot | null;
+  lastEventAt: number;
+}
 
 /**
  * Market-wide Binance futures liquidation feed (!forceOrder@arr). One socket serves every symbol, so switching coins
@@ -13,7 +17,9 @@ export interface LiquidationState { status: LiqStatus; snap: LiqSnapshot | null;
 export function useLiquidations(symbol: string | null): LiquidationState {
   const [st, setSt] = useState<LiquidationState>({ status: "connecting", snap: null, lastEventAt: 0 });
   const symRef = useRef(symbol);
-  useEffect(() => { symRef.current = symbol; }, [symbol]);
+  useEffect(() => {
+    symRef.current = symbol;
+  }, [symbol]);
 
   useEffect(() => {
     let dead = false;
@@ -27,7 +33,11 @@ export function useLiquidations(symbol: string | null): LiquidationState {
 
     const connect = () => {
       ws = new WebSocket(`${WS.perp}?streams=!forceOrder@arr`);
-      ws.onopen = () => { retry = 0; status = "live"; since = Date.now(); };
+      ws.onopen = () => {
+        retry = 0;
+        status = "live";
+        since = Date.now();
+      };
       ws.onmessage = (ev) => {
         const e = parseForceOrder(JSON.parse(ev.data).data);
         if (!e) return;
@@ -48,7 +58,12 @@ export function useLiquidations(symbol: string | null): LiquidationState {
     }, 1000);
 
     connect();
-    return () => { dead = true; clearInterval(flush); clearTimeout(timer); ws?.close(); };
+    return () => {
+      dead = true;
+      clearInterval(flush);
+      clearTimeout(timer);
+      ws?.close();
+    };
   }, []);
 
   return st;
