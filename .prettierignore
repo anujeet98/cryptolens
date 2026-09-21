@@ -7,3 +7,5 @@ package-lock.json
 next-env.d.ts
 *.tsbuildinfo
 data
+.agents
+.claude
