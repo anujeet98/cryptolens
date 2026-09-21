@@ -20,6 +20,7 @@ export BETTER_AUTH_SECRET="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c
 export BETTER_AUTH_URL="http://localhost:$APPPORT"
 export GITHUB_CLIENT_ID="e2e-github-id" GITHUB_CLIENT_SECRET="e2e-github-secret"
 export GOOGLE_CLIENT_ID="e2e-google-id" GOOGLE_CLIENT_SECRET="e2e-google-secret"
+export ADMIN_EMAILS="e2e-admin@example.test"
 export SMOKE_TOKEN="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
 BASE="http://localhost:$APPPORT"
 
@@ -33,7 +34,7 @@ echo "1. Postgres"; "$PGBIN/initdb" -D "$WORK/pg" -U postgres --auth=trust >/dev
 
 echo "2. Migrate (twice: the second run must be a no-op)"
 npm run -s db:migrate 2>&1 | sed 's/^/  /'
-second="$(npm run -s db:migrate 2>&1)"; check "second migration is idempotent" "1" "$(echo "$second" | grep -c 'Database is up to date. Nothing to do.')"  # (Better Auth prints a harmless int8 type note first)
+second="$(npm run -s db:migrate 2>&1)"; check "second migration is idempotent" "1" "$(echo "$second" | grep -c 'Auth tables are up to date.')"  # (Better Auth prints a harmless int8 type note first)
 
 echo "3. Build and start the app with authentication ON"
 npm run -s build >"$WORK/build.log" 2>&1 || { echo "build failed"; tail -20 "$WORK/build.log"; exit 2; }
@@ -115,5 +116,25 @@ check "smoke passes on a protected deployment when given the token" "1" "$(echo 
 check "and it verified the anonymous gate" "1" "$(echo "$sm" | grep -c 'gate: an anonymous API request is refused')"
 sm2="$(env -u SMOKE_TOKEN BASE_URL="$BASE" scripts/smoke.sh 2>&1 | sed 's/\x1b\[[0-9;]*m//g')"
 check "smoke FAILS on a protected deployment without the token (cannot pass by accident)" "1" "$(echo "$sm2" | grep -c 'SMOKE TEST FAILED')"
+
+echo "13. Feedback and the admin inbox"
+fbcookie="$(npm run -s auth:seed -- fb-user@example.test 2>&1 | tail -1)"   # section 9b revoked the earlier session
+post() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST -H "content-type: application/json" -H "Origin: $BASE" "$@"; }
+fb='{"kind":"feature","title":"Telegram alerts","body":"Please add Telegram push alerts for signals.","page":"/"}'
+check "anonymous feedback is refused (401)" "401" "$(post -d "$fb" "$BASE/api/feedback")"
+check "invalid feedback is rejected (400)" "400" "$(post -H "Cookie: $fbcookie" -d '{"kind":"nope","body":"x"}' "$BASE/api/feedback")"
+check "a message needs no title (201)" "201" "$(post -H "Cookie: $fbcookie" -d '{"kind":"message","body":"Hello there, quick question about alerts."}' "$BASE/api/feedback")"
+check "a valid idea is stored (201)" "201" "$(post -H "Cookie: $fbcookie" -d "$fb" "$BASE/api/feedback")"
+for _ in 1 2 3; do post -H "Cookie: $fbcookie" -d "$fb" "$BASE/api/feedback" >/dev/null; done
+check "the sixth item within the hour is rate limited (429)" "429" "$(post -H "Cookie: $fbcookie" -d "$fb" "$BASE/api/feedback")"
+check "the report lists what was sent (4 ideas)" "4" "$(npm run -s feedback 2>&1 | grep -c 'Telegram alerts')"
+check "a non-admin gets 404 for the inbox page" "404" "$(code -H "Cookie: $fbcookie" "$BASE/admin/feedback")"
+check "a non-admin cannot change a status (404)" "404" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "content-type: application/json" -H "Origin: $BASE" -H "Cookie: $fbcookie" -d '{"id":1,"status":"done"}' "$BASE/api/admin/feedback")"
+check "anonymous gets no inbox (redirected to sign-in)" "307" "$(code "$BASE/admin/feedback")"
+admincookie="$(npm run -s auth:seed -- e2e-admin@example.test 2>&1 | tail -1)"
+check "an admin sees the inbox (200)" "200" "$(code -H "Cookie: $admincookie" "$BASE/admin/feedback")"
+check "the inbox shows the submission" "1" "$(curl -s -H "Cookie: $admincookie" "$BASE/admin/feedback" | grep -c 'Telegram alerts')"
+check "an admin can set a status (200)" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "content-type: application/json" -H "Origin: $BASE" -H "Cookie: $admincookie" -d '{"id":1,"status":"done"}' "$BASE/api/admin/feedback")"
+check "an invalid status is rejected (400)" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "content-type: application/json" -H "Origin: $BASE" -H "Cookie: $admincookie" -d '{"id":1,"status":"deleted"}' "$BASE/api/admin/feedback")"
 
 echo; if [ "$fail" -gt 0 ]; then echo "AUTH E2E FAILED: $fail failed, $pass passed"; exit 1; fi; echo "Auth e2e passed: $pass checks"

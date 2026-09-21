@@ -98,6 +98,11 @@ Delivery: an in-page list with a "new" count (also in the tab title while the pa
 
 **Limits.** Alerts run in the page, so they only fire while it is open; browsers throttle timers in background tabs, so checks there can lag by up to about a minute. A background alerting service is not built. Alerts say nothing about direction: the backtests found no directional edge in these signals.
 
+## Feedback (needs authentication)
+Signed-in users get a **Feedback** button in the header: a dialog with three tabs (Idea, Bug, Message). Submissions are stored in the same Postgres database (`feedback` table, created by `npm run db:migrate`), limited to 5 per user per hour, and removed with the account.
+- **Read them:** open `/admin/feedback` (only emails in `ADMIN_EMAILS`, and only when the provider verified the email; everyone else sees a 404) or run `npm run feedback` (new items) / `npm run feedback -- all` in a terminal with `DATABASE_URL` set. Both show the sender's email so you can reply.
+- **Set the admin:** add `ADMIN_EMAILS` (comma separated) in the environment, then redeploy.
+
 ## Authentication (optional)
 Sign-in uses [Better Auth](https://www.better-auth.com) with **OAuth providers only**: no passwords, no email links, nothing to reset or leak. Supported: Google, GitHub, Microsoft, Apple, X (Twitter), Discord, Facebook and LinkedIn.
 
