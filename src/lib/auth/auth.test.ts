@@ -142,6 +142,8 @@ describe("gateDecision (fast, optimistic layer)", () => {
     expect(isPublicPath("/sign-in-evil")).toBe(false);
     expect(isPublicPath("/api/authx")).toBe(false);
     expect(isPublicPath("/api/health/extra")).toBe(false);
+    expect(isPublicPath("/api/contact/extra")).toBe(false);
+    expect(isPublicPath("/api/contact")).toBe(true);
   });
 });
 
