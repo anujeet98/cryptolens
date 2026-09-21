@@ -9,6 +9,10 @@
 set -uo pipefail
 
 fails=0
+# NOTE: do not pass --token to `vercel curl`: it forwards unknown options to curl, which rejects them ("option --token: is unknown").
+# The CLI reads VERCEL_TOKEN from the environment on its own.
+# `vercel curl` errors (protection bypass, token, project link) go here instead of /dev/null, and are printed if anything fails.
+ERRLOG=$(mktemp); trap 'rm -f "$ERRLOG"' EXIT
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; fails=$((fails + 1)); }
 
@@ -18,7 +22,7 @@ AUTH_ARGS=(); [ -n "${SMOKE_TOKEN:-}" ] && AUTH_ARGS=(-H "x-smoke-token: $SMOKE_
 # fetch PATH -> body on stdout. Non-2xx or transport errors print nothing and return non-zero.
 fetch() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>/dev/null
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
   else
     curl -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
@@ -26,14 +30,14 @@ fetch() {
 # Like fetch, but keeps the body of non-2xx responses: /api/health answers 503 with the reason attached.
 fetch_any() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --max-time 40 2>/dev/null
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS --max-time 40 2>>"$ERRLOG"
   else
     curl -sS --max-time 40 "${BASE_URL%/}$1" 2>/dev/null
   fi
 }
 headers() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>/dev/null
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
   else
     curl -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
@@ -56,7 +60,7 @@ fi
 
 # 1b. Authentication gate. Only meaningful when the deployment reports auth as enabled.
 raw() {  # raw PATH -> "<status> <redirect-target>" for an ANONYMOUS request (never sends the smoke token)
-  if [ -n "${DEPLOYMENT_URL:-}" ]; then vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 2>/dev/null
+  if [ -n "${DEPLOYMENT_URL:-}" ]; then vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 2>/dev/null
   else curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 "${BASE_URL%/}$1" 2>/dev/null; fi
 }
 if [ "$(echo "${body:-}" | jq -r '.auth.enabled // false' 2>/dev/null)" = "true" ]; then
@@ -104,5 +108,9 @@ h=$(headers /)
 echo "$h" | grep -qi '^permissions-policy: camera=()' && pass "headers: app security headers present" || fail "headers: app security headers missing"
 
 echo
-if [ "$fails" -gt 0 ]; then echo "SMOKE TEST FAILED ($fails check(s))"; exit 1; fi
+if [ "$fails" -gt 0 ]; then
+  # When every check fails together, the cause is usually that `vercel curl` itself could not reach the deployment.
+  if [ -s "$ERRLOG" ]; then echo "--- what \`vercel curl\` reported (last lines) ---"; tail -n 15 "$ERRLOG" | cut -c1-300; echo "---"; fi
+  echo "SMOKE TEST FAILED ($fails check(s))"; exit 1
+fi
 echo "Smoke test passed"
