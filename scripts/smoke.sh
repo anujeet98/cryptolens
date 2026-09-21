@@ -60,7 +60,7 @@ fi
 
 # 1b. Authentication gate. Only meaningful when the deployment reports auth as enabled.
 raw() {  # raw PATH -> "<status> <redirect-target>" for an ANONYMOUS request (never sends the smoke token)
-  if [ -n "${DEPLOYMENT_URL:-}" ]; then vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 2>/dev/null
+  if [ -n "${DEPLOYMENT_URL:-}" ]; then vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 2>/dev/null
   else curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 40 "${BASE_URL%/}$1" 2>/dev/null; fi
 }
 if [ "$(echo "${body:-}" | jq -r '.auth.enabled // false' 2>/dev/null)" = "true" ]; then
