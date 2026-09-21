@@ -9,6 +9,8 @@
 set -uo pipefail
 
 fails=0
+# NOTE: do not pass --token to `vercel curl`: it forwards unknown options to curl, which rejects them ("option --token: is unknown").
+# The CLI reads VERCEL_TOKEN from the environment on its own.
 # `vercel curl` errors (protection bypass, token, project link) go here instead of /dev/null, and are printed if anything fails.
 ERRLOG=$(mktemp); trap 'rm -f "$ERRLOG"' EXIT
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
@@ -20,7 +22,7 @@ AUTH_ARGS=(); [ -n "${SMOKE_TOKEN:-}" ] && AUTH_ARGS=(-H "x-smoke-token: $SMOKE_
 # fetch PATH -> body on stdout. Non-2xx or transport errors print nothing and return non-zero.
 fetch() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
   else
     curl -sS --fail --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
@@ -28,14 +30,14 @@ fetch() {
 # Like fetch, but keeps the body of non-2xx responses: /api/health answers 503 with the reason attached.
 fetch_any() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sS --max-time 40 2>>"$ERRLOG"
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sS --max-time 40 2>>"$ERRLOG"
   else
     curl -sS --max-time 40 "${BASE_URL%/}$1" 2>/dev/null
   fi
 }
 headers() {
   if [ -n "${DEPLOYMENT_URL:-}" ]; then
-    vercel curl "$1" --deployment "$DEPLOYMENT_URL" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"} -- -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
+    vercel curl "$1" --deployment "$DEPLOYMENT_URL" -- -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} 2>>"$ERRLOG"
   else
     curl -sSI --max-time 40 ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL%/}$1" 2>/dev/null
   fi
