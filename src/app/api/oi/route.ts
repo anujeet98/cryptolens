@@ -19,7 +19,9 @@ async function handle(req: NextRequest) {
   try {
     const d = getConnector(exchange).derivatives;
     if (!d) return fail("derivatives not supported", 404);
-    return NextResponse.json(await cached(`oi:${exchange}:${symbol}:${period}`, 15_000, () => d.getOpenInterestHistory(symbol, period, 500)));
+    return NextResponse.json(
+      await cached(`oi:${exchange}:${symbol}:${period}`, 15_000, () => d.getOpenInterestHistory(symbol, period, 500)),
+    );
   } catch (e) {
     return fail(e);
   }

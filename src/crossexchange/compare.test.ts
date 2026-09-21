@@ -2,8 +2,17 @@ import { describe, expect, it } from "vitest";
 import { compareExchanges, to8h, type ExchangeRow } from "./compare";
 
 const row = (o: Partial<ExchangeRow> & { exchange: ExchangeRow["exchange"] }): ExchangeRow => ({
-  symbol: "BTCUSDT", price: 100, mark: 100, index: 100, fundingRate: 0.0001, fundingIntervalHours: 8,
-  nextFundingTime: 0, oiUsd: 1000, volume24hUsd: 5000, changePct24h: 1, ...o,
+  symbol: "BTCUSDT",
+  price: 100,
+  mark: 100,
+  index: 100,
+  fundingRate: 0.0001,
+  fundingIntervalHours: 8,
+  nextFundingTime: 0,
+  oiUsd: 1000,
+  volume24hUsd: 5000,
+  changePct24h: 1,
+  ...o,
 });
 
 describe("to8h", () => {
@@ -67,10 +76,7 @@ describe("compareExchanges", () => {
   });
 
   it("falls back to the first venue when the reference is missing, and flags OI concentration", () => {
-    const c = compareExchanges([
-      row({ exchange: "bybit", oiUsd: 8000 }),
-      row({ exchange: "okx", oiUsd: 1000 }),
-    ])!;
+    const c = compareExchanges([row({ exchange: "bybit", oiUsd: 8000 }), row({ exchange: "okx", oiUsd: 1000 })])!;
     expect(c.ref).toBe("bybit");
     expect(c.notes.some((n) => n.includes("holds 89% of open interest"))).toBe(true);
   });

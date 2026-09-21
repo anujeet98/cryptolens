@@ -15,11 +15,16 @@ export function useVolumeWindows(symbol: string, market: MarketType): VolumeWind
         if (!r.ok) return;
         const c: Candle[] = await r.json();
         if (!dead) setState({ key, w: volumeWindows(c) });
-      } catch { /* keep previous */ }
+      } catch {
+        /* keep previous */
+      }
     };
     run();
     const i = setInterval(run, 15_000);
-    return () => { dead = true; clearInterval(i); };
+    return () => {
+      dead = true;
+      clearInterval(i);
+    };
   }, [symbol, market, key]);
   return state.key === key ? state.w : [];
 }

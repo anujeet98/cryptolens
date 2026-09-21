@@ -1,6 +1,19 @@
 /** One upstream reachability probe. */
-export interface Probe { id: string; label: string; url: string; core: boolean }
-export interface ProbeResult { id: string; label: string; core: boolean; ok: boolean; status: number | null; ms: number | null; error?: string }
+export interface Probe {
+  id: string;
+  label: string;
+  url: string;
+  core: boolean;
+}
+export interface ProbeResult {
+  id: string;
+  label: string;
+  core: boolean;
+  ok: boolean;
+  status: number | null;
+  ms: number | null;
+  error?: string;
+}
 
 /**
  * Cheap, key-free endpoints that answer "can this server reach that exchange from here?".
@@ -32,8 +45,20 @@ export async function runProbe(p: Probe, fetchFn: typeof fetch = fetch, timeoutM
   const base = { id: p.id, label: p.label, core: p.core };
   try {
     const res = await fetchFn(p.url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
-    return { ...base, ok: res.ok, status: res.status, ms: Date.now() - t0, ...(res.ok ? {} : { error: res.status === 451 ? "blocked for this region (HTTP 451)" : `HTTP ${res.status}` }) };
+    return {
+      ...base,
+      ok: res.ok,
+      status: res.status,
+      ms: Date.now() - t0,
+      ...(res.ok ? {} : { error: res.status === 451 ? "blocked for this region (HTTP 451)" : `HTTP ${res.status}` }),
+    };
   } catch (e) {
-    return { ...base, ok: false, status: null, ms: Date.now() - t0, error: e instanceof Error ? e.message : "unreachable" };
+    return {
+      ...base,
+      ok: false,
+      status: null,
+      ms: Date.now() - t0,
+      error: e instanceof Error ? e.message : "unreachable",
+    };
   }
 }

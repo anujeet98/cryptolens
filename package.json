@@ -18,7 +18,9 @@
     "users": "tsx scripts/users.ts",
     "feedback": "tsx scripts/feedback.ts",
     "auth:seed": "tsx scripts/auth-seed.ts",
-    "test:auth-e2e": "scripts/auth-e2e.sh"
+    "test:auth-e2e": "scripts/auth-e2e.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "better-auth": "^1.7.5",
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "prettier": "3.9.8",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5",

@@ -17,25 +17,45 @@ import type { VolRegime } from "@/regime/regime";
  */
 export const RISK_HORIZONS = [4, 12, 24] as const;
 export type RiskHorizon = (typeof RISK_HORIZONS)[number];
-export interface RangeMultiples { p50: number; p80: number; p90: number }
+export interface RangeMultiples {
+  p50: number;
+  p80: number;
+  p90: number;
+}
 export const RISK_TABLE: Record<RiskHorizon, RangeMultiples> = {
   4: { p50: 1.81, p80: 2.75, p90: 3.53 },
   12: { p50: 3.29, p80: 4.99, p90: 6.38 },
   24: { p50: 4.79, p80: 7.26, p90: 9.28 },
 };
 
-export interface RangeForecast { h: RiskHorizon; p50: number; p80: number; p90: number } // percent of price
+export interface RangeForecast {
+  h: RiskHorizon;
+  p50: number;
+  p80: number;
+  p90: number;
+} // percent of price
 
 /** Expected range for each horizon, in percent of price, from the current ATR% (as a percent, e.g. 0.24). */
 export function forecastRanges(atrPct: number): RangeForecast[] {
-  return RISK_HORIZONS.map((h) => ({ h, p50: atrPct * RISK_TABLE[h].p50, p80: atrPct * RISK_TABLE[h].p80, p90: atrPct * RISK_TABLE[h].p90 }));
+  return RISK_HORIZONS.map((h) => ({
+    h,
+    p50: atrPct * RISK_TABLE[h].p50,
+    p80: atrPct * RISK_TABLE[h].p80,
+    p90: atrPct * RISK_TABLE[h].p90,
+  }));
 }
 
 /** Wall-clock length of h bars, e.g. "3h" or "2d". */
 export function windowLabel(h: number, tfSeconds: number): string {
   const sec = h * tfSeconds;
-  if (sec >= 86400) { const d = sec / 86400; return `${Number.isInteger(d) ? d : d.toFixed(1)}d`; }
-  if (sec >= 3600) { const x = sec / 3600; return `${Number.isInteger(x) ? x : x.toFixed(1)}h`; }
+  if (sec >= 86400) {
+    const d = sec / 86400;
+    return `${Number.isInteger(d) ? d : d.toFixed(1)}d`;
+  }
+  if (sec >= 3600) {
+    const x = sec / 3600;
+    return `${Number.isInteger(x) ? x : x.toFixed(1)}h`;
+  }
   return `${Math.round(sec / 60)}m`;
 }
 
@@ -44,7 +64,9 @@ export function windowLabel(h: number, tfSeconds: number): string {
  * beyond what current ATR implies; after high volatility it tends to contract. The size was not reliable enough to adjust the numbers.
  */
 export function regimeHint(vol: VolRegime): string | null {
-  if (vol === "SQUEEZE" || vol === "LOW") return "Volatility is currently low. Over longer windows it has tended to expand beyond what the current ATR implies, so the wider figures are the safer guide.";
-  if (vol === "HIGH" || vol === "EXTREME") return "Volatility is currently high. Over longer windows it has tended to settle back below what the current ATR implies, so the wider figures may overstate.";
+  if (vol === "SQUEEZE" || vol === "LOW")
+    return "Volatility is currently low. Over longer windows it has tended to expand beyond what the current ATR implies, so the wider figures are the safer guide.";
+  if (vol === "HIGH" || vol === "EXTREME")
+    return "Volatility is currently high. Over longer windows it has tended to settle back below what the current ATR implies, so the wider figures may overstate.";
   return null;
 }

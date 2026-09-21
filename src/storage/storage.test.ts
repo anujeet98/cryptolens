@@ -3,14 +3,45 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { FLAG_REST_MISSING, FLAG_WS_GAP, SCHEMA_VERSION, insertLiquidations, insertSnapshots, openDb, prune, type SnapshotRow } from "./db";
+import {
+  FLAG_REST_MISSING,
+  FLAG_WS_GAP,
+  SCHEMA_VERSION,
+  insertLiquidations,
+  insertSnapshots,
+  openDb,
+  prune,
+  type SnapshotRow,
+} from "./db";
 import { coverage, getLiquidations, getSnapshots } from "./queries";
 import { Recorder, bookMetrics, type RecorderDeps } from "./recorder";
 
 const T0 = 1_700_000_040; // minute-aligned unix seconds
 const row = (ts: number, o: Partial<SnapshotRow> = {}): SnapshotRow => ({
-  symbol: "BTCUSDT", ts, open: 1, high: 2, low: 0.5, close: 1.5, buyUsd: 10, sellUsd: 5, buyN: 2, sellN: 1, maxBuyUsd: 6, maxSellUsd: 5,
-  mark: 1, indexPrice: 1, fundingRate: 0.0001, oiUsd: 1000, mid: 1, spreadBps: 1, bidUsd10bp: 1, askUsd10bp: 1, bidUsd50bp: 1, askUsd50bp: 1, flags: 0, ...o,
+  symbol: "BTCUSDT",
+  ts,
+  open: 1,
+  high: 2,
+  low: 0.5,
+  close: 1.5,
+  buyUsd: 10,
+  sellUsd: 5,
+  buyN: 2,
+  sellN: 1,
+  maxBuyUsd: 6,
+  maxSellUsd: 5,
+  mark: 1,
+  indexPrice: 1,
+  fundingRate: 0.0001,
+  oiUsd: 1000,
+  mid: 1,
+  spreadBps: 1,
+  bidUsd10bp: 1,
+  askUsd10bp: 1,
+  bidUsd50bp: 1,
+  askUsd50bp: 1,
+  flags: 0,
+  ...o,
 });
 
 describe("openDb", () => {
@@ -52,7 +83,10 @@ describe("inserts and queries", () => {
   });
   it("stores liquidations and filters by symbol or market-wide", () => {
     const db = openDb(":memory:");
-    insertLiquidations(db, [{ t: 3000, symbol: "A", side: "long", price: 1, usd: 5 }, { t: 1000, symbol: "B", side: "short", price: 2, usd: 7 }]);
+    insertLiquidations(db, [
+      { t: 3000, symbol: "A", side: "long", price: 1, usd: 5 },
+      { t: 1000, symbol: "B", side: "short", price: 2, usd: 7 },
+    ]);
     expect(getLiquidations(db, null, 0, 9000).map((l) => l.symbol)).toEqual(["B", "A"]);
     expect(getLiquidations(db, "A", 0, 9000)).toHaveLength(1);
   });
@@ -60,7 +94,10 @@ describe("inserts and queries", () => {
     const db = openDb(":memory:");
     const now = T0 + 200 * 86400;
     insertSnapshots(db, [row(T0), row(now - 60)]);
-    insertLiquidations(db, [{ t: T0 * 1000, symbol: "A", side: "long", price: 1, usd: 1 }, { t: (now - 60) * 1000, symbol: "A", side: "long", price: 1, usd: 1 }]);
+    insertLiquidations(db, [
+      { t: T0 * 1000, symbol: "A", side: "long", price: 1, usd: 1 },
+      { t: (now - 60) * 1000, symbol: "A", side: "long", price: 1, usd: 1 },
+    ]);
     expect(prune(db, now, 180, 90)).toEqual({ snapshots: 1, liquidations: 1 });
     expect(getSnapshots(db, "BTCUSDT", 0, 9e9)).toHaveLength(1);
   });
@@ -70,9 +107,12 @@ describe("coverage", () => {
   it("reports gaps, partial and REST-missing rows, and the clean count", () => {
     const db = openDb(":memory:");
     insertSnapshots(db, [
-      row(T0), row(T0 + 60, { flags: FLAG_WS_GAP }), row(T0 + 120, { flags: FLAG_REST_MISSING }),
+      row(T0),
+      row(T0 + 60, { flags: FLAG_WS_GAP }),
+      row(T0 + 120, { flags: FLAG_REST_MISSING }),
       // 5 minutes missing, then continues
-      row(T0 + 120 + 6 * 60), row(T0 + 120 + 7 * 60),
+      row(T0 + 120 + 6 * 60),
+      row(T0 + 120 + 7 * 60),
       // 1 minute missing: below the gap threshold but still counted as missing
       row(T0 + 120 + 9 * 60),
     ]);
@@ -146,7 +186,8 @@ describe("Recorder", () => {
     await r.tick(ms(200)); // machine slept: minutes 0, 1, 2 all closed; only minute 2 is "just closed"... minute 3 is open
     const s = getSnapshots(db, "BTCUSDT", 0, 9e9);
     expect(s.map((x) => x.ts - T0)).toEqual([0, 60, 120]);
-    const stale = s.slice(0, 2), fresh = s[2];
+    const stale = s.slice(0, 2),
+      fresh = s[2];
     expect(stale.every((x) => x.mark === null && (x.flags & FLAG_REST_MISSING) === FLAG_REST_MISSING)).toBe(true);
     expect(fresh.mark).toBe(100);
     expect(fresh.flags).toBe(0);
@@ -155,7 +196,13 @@ describe("Recorder", () => {
   it("still writes flow when REST sampling fails, and flags it", async () => {
     const db = openDb(":memory:");
     const logs: string[] = [];
-    const bad: RecorderDeps = { sampleDerivs: async () => { throw new Error("451"); }, sampleBook: async () => ({ bids, asks }), log: (m) => logs.push(m) };
+    const bad: RecorderDeps = {
+      sampleDerivs: async () => {
+        throw new Error("451");
+      },
+      sampleBook: async () => ({ bids, asks }),
+      log: (m) => logs.push(m),
+    };
     const r = new Recorder(db, ["BTCUSDT"], bad, ms(0));
     r.onTrade("BTCUSDT", ms(5), 100, 1, false);
     await r.tick(ms(61));
@@ -182,7 +229,11 @@ describe("Recorder", () => {
     r.onLiquidation({ t: ms(10), symbol: "XYZUSDT", side: "long", price: 1, usd: 50 });
     await r.tick(ms(61));
     expect(getLiquidations(db, null, 0, 9e15)).toHaveLength(1);
-    const run = db.prepare("SELECT started, heartbeat, symbols FROM runs").get() as { started: number; heartbeat: number; symbols: string };
+    const run = db.prepare("SELECT started, heartbeat, symbols FROM runs").get() as {
+      started: number;
+      heartbeat: number;
+      symbols: string;
+    };
     expect(run.started).toBe(T0);
     expect(run.heartbeat).toBe(T0 + 61);
     expect(run.symbols).toBe("BTCUSDT");
@@ -191,7 +242,13 @@ describe("Recorder", () => {
   it("is single-flight: an overlapping tick is skipped and nothing is lost", async () => {
     const db = openDb(":memory:");
     let release!: () => void;
-    const slow: RecorderDeps = { sampleDerivs: () => new Promise((res) => { release = () => res({ mark: 1, index: 1, fundingRate: 0, oiUsd: 1 }); }), sampleBook: async () => ({ bids, asks }) };
+    const slow: RecorderDeps = {
+      sampleDerivs: () =>
+        new Promise((res) => {
+          release = () => res({ mark: 1, index: 1, fundingRate: 0, oiUsd: 1 });
+        }),
+      sampleBook: async () => ({ bids, asks }),
+    };
     const r = new Recorder(db, ["BTCUSDT"], slow, ms(0));
     r.onTrade("BTCUSDT", ms(5), 100, 1, false);
     const first = r.tick(ms(61));

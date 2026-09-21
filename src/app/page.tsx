@@ -51,7 +51,10 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    fetch("/api/symbols").then((r) => r.json()).then((d) => Array.isArray(d) && setCoins(d)).catch(() => {});
+    fetch("/api/symbols")
+      .then((r) => r.json())
+      .then((d) => Array.isArray(d) && setCoins(d))
+      .catch(() => {});
     const i = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(i);
   }, []);
@@ -77,11 +80,18 @@ export default function Home() {
   const perpSymbol = pick("perp")?.symbol ?? null; // derivatives always come from the perp, even when viewing spot
   const deriv = useDerivatives(perpSymbol);
   const oiSeries = useOiSeries(perpSymbol, tf);
-  const funding = useMemo(() => (deriv.data ? analyzeFunding(deriv.data.funding, deriv.data.snapshot.fundingRate) : null), [deriv.data]);
+  const funding = useMemo(
+    () => (deriv.data ? analyzeFunding(deriv.data.funding, deriv.data.snapshot.fundingRate) : null),
+    [deriv.data],
+  );
   const oi = useMemo(() => (deriv.data ? analyzeOi(deriv.data.oi5m, deriv.data.snapshot) : null), [deriv.data]);
   const mtfRegime = useMtfRegime(symbol, mt);
   const regime = useMemo(
-    () => classifyRegime(candles, tf, { nowMs: now, ctx: { fundingClass: funding?.class, oiRegime: oi?.windows.find((w) => w.label === "1h")?.regime } }),
+    () =>
+      classifyRegime(candles, tf, {
+        nowMs: now,
+        ctx: { fundingClass: funding?.class, oiRegime: oi?.windows.find((w) => w.label === "1h")?.regime },
+      }),
     [candles, tf, now, funding, oi],
   );
   const nextFundingIn = (() => {
@@ -95,36 +105,84 @@ export default function Home() {
   const liq = useLiquidations(perpSymbol);
   const xch = useCrossExchange(base);
   const exchanges = [...new Set(listing?.markets.map((m) => m.exchange))];
-  const livePrice = liveOk ? live.ticker?.price ?? candles.at(-1)?.close ?? null : null;
-  const alertSnap = buildSnapshot({ symbol, market: mt, tf, ts: now, perpSymbol, liveKey: live.key, candles, regime, liq: liq.snap, fundingClass: funding?.class ?? null });
+  const livePrice = liveOk ? (live.ticker?.price ?? candles.at(-1)?.close ?? null) : null;
+  const alertSnap = buildSnapshot({
+    symbol,
+    market: mt,
+    tf,
+    ts: now,
+    perpSymbol,
+    liveKey: live.key,
+    candles,
+    regime,
+    liq: liq.snap,
+    fundingClass: funding?.class ?? null,
+  });
   const alerts = useAlerts(alertSnap, { symbol, market: mt, price: livePrice });
 
   return (
     <main className="flex min-h-screen flex-col gap-3 p-3">
       <header className="flex flex-wrap items-center gap-3 border-b border-line pb-3">
         {HOME_URL ? (
-          <a href={HOME_URL} className="text-sm font-semibold tracking-wide transition-opacity hover:opacity-80" title="About CryptoLens" aria-label="CryptoLens, about this product">CRYPTO<span className="text-accent">LENS</span></a>
+          <a
+            href={HOME_URL}
+            className="text-sm font-semibold tracking-wide transition-opacity hover:opacity-80"
+            title="About CryptoLens"
+            aria-label="CryptoLens, about this product"
+          >
+            CRYPTO<span className="text-accent">LENS</span>
+          </a>
         ) : (
-          <span className="text-sm font-semibold tracking-wide">CRYPTO<span className="text-accent">LENS</span></span>
+          <span className="text-sm font-semibold tracking-wide">
+            CRYPTO<span className="text-accent">LENS</span>
+          </span>
         )}
         <SymbolSearch value={base} onSelect={setBase} />
         <div className="flex gap-1">
           {(["perp", "spot"] as const).map((m) => (
-            <button key={m} disabled={!pick(m)} onClick={() => setMarket(m)} className={`${seg(mt === m)} disabled:opacity-30`}>
+            <button
+              key={m}
+              disabled={!pick(m)}
+              onClick={() => setMarket(m)}
+              className={`${seg(mt === m)} disabled:opacity-30`}
+            >
               {m === "perp" ? "Perp" : "Spot"}
             </button>
           ))}
         </div>
-        <span className="num text-xs text-muted">{symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}</span>
+        <span className="num text-xs text-muted">
+          {symbol} · {exchanges.length ? exchanges.map((e) => `${e} ✓`).join("  ") : ""}
+        </span>
         <div className="ml-auto flex items-center gap-3">
-          {alerts.unread > 0 && <button onClick={alerts.markRead} className="rounded bg-warn/20 px-2.5 py-1 text-xs text-warn" title="Mark alerts as read">🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}</button>}
+          {alerts.unread > 0 && (
+            <button
+              onClick={alerts.markRead}
+              className="rounded bg-warn/20 px-2.5 py-1 text-xs text-warn"
+              title="Mark alerts as read"
+            >
+              🔔 {alerts.unread} new alert{alerts.unread === 1 ? "" : "s"}
+            </button>
+          )}
           <FeedbackButton />
           <UserMenu />
         </div>
       </header>
 
-      <SummaryBar t={live.ticker} state={live.state} age={live.lastMsgAt ? now - live.lastMsgAt : 0}
-        d={deriv.data ? { funding: deriv.data.snapshot.fundingRate, oiUsd: deriv.data.snapshot.openInterestUsd, oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct, ls: deriv.data.ls.at(-1)?.ratio } : undefined} />
+      <SummaryBar
+        t={live.ticker}
+        state={live.state}
+        age={live.lastMsgAt ? now - live.lastMsgAt : 0}
+        d={
+          deriv.data
+            ? {
+                funding: deriv.data.snapshot.fundingRate,
+                oiUsd: deriv.data.snapshot.openInterestUsd,
+                oiChg1h: oi?.windows.find((w) => w.label === "1h")?.oiChangePct,
+                ls: deriv.data.ls.at(-1)?.ratio,
+              }
+            : undefined
+        }
+      />
 
       <RegimePanel r={regime} mtf={mtfRegime} tf={tf} />
       <RiskPanel r={regime} price={livePrice} tf={tf} />
@@ -133,13 +191,22 @@ export default function Home() {
       <section className="rounded border border-line bg-panel">
         <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
           {TIMEFRAMES.map((t) => (
-            <button key={t} onClick={() => setTf(t)} className={seg(tf === t)}>{t === "1d" ? "1D" : t}</button>
+            <button key={t} onClick={() => setTf(t)} className={seg(tf === t)}>
+              {t === "1d" ? "1D" : t}
+            </button>
           ))}
           <span className="mx-2 h-4 w-px bg-line" />
           {([9, 20, 50, 100, 200] as const).map((p) => {
             const k = `ema${p}` as keyof Toggles;
             return (
-              <button key={p} onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))} className={seg(toggles[k])} style={toggles[k] ? { color: EMA_COLORS[p] } : undefined}>EMA{p}</button>
+              <button
+                key={p}
+                onClick={() => setToggles((s) => ({ ...s, [k]: !s[k] }))}
+                className={seg(toggles[k])}
+                style={toggles[k] ? { color: EMA_COLORS[p] } : undefined}
+              >
+                EMA{p}
+              </button>
             );
           })}
           {(["vwap", "bb", "swings", "rsi", "macd", "oi", "funding"] as const).map((k) => (
@@ -149,7 +216,14 @@ export default function Home() {
           ))}
         </div>
         <div className="relative h-[720px]">
-          <PriceChart candles={live.candles} resetKey={`${symbol}:${mt}:${tf}:${oiSeries.length > 0}:${(deriv.data?.funding.length ?? 0) > 0}`} toggles={toggles} tf={tf} oi={oiSeries} funding={deriv.data?.funding ?? []} />
+          <PriceChart
+            candles={live.candles}
+            resetKey={`${symbol}:${mt}:${tf}:${oiSeries.length > 0}:${(deriv.data?.funding.length ?? 0) > 0}`}
+            toggles={toggles}
+            tf={tf}
+            oi={oiSeries}
+            funding={deriv.data?.funding ?? []}
+          />
           {live.state === "error" && (
             <div className="absolute inset-0 grid place-items-center text-sm text-bear">{live.error}</div>
           )}
@@ -160,7 +234,14 @@ export default function Home() {
       <TradeFlowPanel tf={flow} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
       <LiquidationsPanel liq={liq} symbol={perpSymbol} now={now} />
       <OrderBookPanel ob={ob} now={now} symbol={symbol} marketLabel={mt === "perp" ? "perp" : "spot"} />
-      <DerivativesPanel st={deriv} funding={funding} oi={oi} symbol={perpSymbol} now={now} nextFundingIn={nextFundingIn} />
+      <DerivativesPanel
+        st={deriv}
+        funding={funding}
+        oi={oi}
+        symbol={perpSymbol}
+        now={now}
+        nextFundingIn={nextFundingIn}
+      />
       <MomentumVolumePanel m={momentum} v={volume} windows={volWindows} ticker={live.ticker} tf={tf} />
       <TechnicalsPanel t={tech} mtfRsi={mtfRsi} tf={tf} />
     </main>

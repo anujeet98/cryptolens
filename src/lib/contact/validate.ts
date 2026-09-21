@@ -1,7 +1,19 @@
-export const CONTACT_LIMITS = { nameMax: 80, emailMax: 200, messageMin: 10, messageMax: 2000, perHourPerIp: 3, perDayTotal: 200 } as const;
+export const CONTACT_LIMITS = {
+  nameMax: 80,
+  emailMax: 200,
+  messageMin: 10,
+  messageMax: 2000,
+  perHourPerIp: 3,
+  perDayTotal: 200,
+} as const;
 
-export interface ContactInput { name: string; email: string; message: string }
-export type ParsedContact = { ok: true; value: ContactInput } | { ok: true; spam: true; value?: undefined } | { ok: false; error: string };
+export interface ContactInput {
+  name: string;
+  email: string;
+  message: string;
+}
+export type ParsedContact =
+  { ok: true; value: ContactInput } | { ok: true; spam: true; value?: undefined } | { ok: false; error: string };
 
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 const clean = (s: string) => s.replace(CONTROL, "").replace(/\r\n?/g, "\n").trim();
@@ -19,19 +31,38 @@ export function parseContact(raw: unknown): ParsedContact {
   const name = typeof r.name === "string" ? clean(r.name).replace(/\n+/g, " ") : "";
   const email = typeof r.email === "string" ? clean(r.email) : "";
   const message = typeof r.message === "string" ? clean(r.message) : "";
-  if (name.length > CONTACT_LIMITS.nameMax) return { ok: false, error: `Keep the name under ${CONTACT_LIMITS.nameMax} characters.` };
-  if (!email || email.length > CONTACT_LIMITS.emailMax || !EMAIL.test(email)) return { ok: false, error: "Enter an email address we can reply to." };
-  if (message.length < CONTACT_LIMITS.messageMin) return { ok: false, error: `Please write at least ${CONTACT_LIMITS.messageMin} characters.` };
-  if (message.length > CONTACT_LIMITS.messageMax) return { ok: false, error: `Keep the message under ${CONTACT_LIMITS.messageMax} characters.` };
+  if (name.length > CONTACT_LIMITS.nameMax)
+    return { ok: false, error: `Keep the name under ${CONTACT_LIMITS.nameMax} characters.` };
+  if (!email || email.length > CONTACT_LIMITS.emailMax || !EMAIL.test(email))
+    return { ok: false, error: "Enter an email address we can reply to." };
+  if (message.length < CONTACT_LIMITS.messageMin)
+    return { ok: false, error: `Please write at least ${CONTACT_LIMITS.messageMin} characters.` };
+  if (message.length > CONTACT_LIMITS.messageMax)
+    return { ok: false, error: `Keep the message under ${CONTACT_LIMITS.messageMax} characters.` };
   return { ok: true, value: { name, email, message } };
 }
 
 /** Origins allowed to call the contact endpoint from a browser: CONTACT_ALLOWED_ORIGINS (comma list), else the landing page's origin. */
 export function allowedOrigins(env: Record<string, string | undefined>): string[] {
-  const list = (env.CONTACT_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const fromHome = (() => { try { return env.NEXT_PUBLIC_HOME_URL ? [new URL(env.NEXT_PUBLIC_HOME_URL).origin] : []; } catch { return []; } })();
+  const list = (env.CONTACT_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const fromHome = (() => {
+    try {
+      return env.NEXT_PUBLIC_HOME_URL ? [new URL(env.NEXT_PUBLIC_HOME_URL).origin] : [];
+    } catch {
+      return [];
+    }
+  })();
   const out = new Set<string>();
-  for (const o of [...list, ...fromHome]) { try { out.add(new URL(o).origin); } catch { /* ignore junk */ } }
+  for (const o of [...list, ...fromHome]) {
+    try {
+      out.add(new URL(o).origin);
+    } catch {
+      /* ignore junk */
+    }
+  }
   return [...out];
 }
 

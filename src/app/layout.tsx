@@ -25,11 +25,10 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: LayoutProps<"/">) {
   const authEnabled = authStatus(process.env).enabled;
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col"><AuthProvider enabled={authEnabled}>{children}</AuthProvider></body>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <AuthProvider enabled={authEnabled}>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

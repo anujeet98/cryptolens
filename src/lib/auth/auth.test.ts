@@ -4,16 +4,40 @@ import { checkApiAccess, gateDecision, isPublicPath, safeNext, tokensMatch } fro
 
 const SECRET = "x".repeat(40);
 // Build URLs from parts so no credential-shaped literal sits in the source (secret scanners flag those, even fake ones).
-const dbUrl = ({ user = "", pass = "", host, path = "" }: { user?: string; pass?: string; host: string; path?: string }) => {
+const dbUrl = ({
+  user = "",
+  pass = "",
+  host,
+  path = "",
+}: {
+  user?: string;
+  pass?: string;
+  host: string;
+  path?: string;
+}) => {
   const u = new URL("postgresql://placeholder");
-  u.username = user; u.password = pass; u.hostname = host; u.pathname = path;
+  u.username = user;
+  u.password = pass;
+  u.hostname = host;
+  u.pathname = path;
   return u.toString();
 };
-const base: Env = { DATABASE_URL: dbUrl({ host: "h", path: "/db" }), BETTER_AUTH_SECRET: SECRET, GITHUB_CLIENT_ID: "id", GITHUB_CLIENT_SECRET: "sec" };
+const base: Env = {
+  DATABASE_URL: dbUrl({ host: "h", path: "/db" }),
+  BETTER_AUTH_SECRET: SECRET,
+  GITHUB_CLIENT_ID: "id",
+  GITHUB_CLIENT_SECRET: "sec",
+};
 
 describe("enabledProviders", () => {
   it("enables a provider only when both id and secret are present, in button order", () => {
-    const p = enabledProviders({ GITHUB_CLIENT_ID: "a", GITHUB_CLIENT_SECRET: "b", GOOGLE_CLIENT_ID: "c", GOOGLE_CLIENT_SECRET: "d", DISCORD_CLIENT_ID: "only-id" });
+    const p = enabledProviders({
+      GITHUB_CLIENT_ID: "a",
+      GITHUB_CLIENT_SECRET: "b",
+      GOOGLE_CLIENT_ID: "c",
+      GOOGLE_CLIENT_SECRET: "d",
+      DISCORD_CLIENT_ID: "only-id",
+    });
     expect(p.map((x) => x.id)).toEqual(["google", "github"]); // discord ignored (no secret)
     expect(p[1]).toMatchObject({ label: "GitHub", clientId: "a", clientSecret: "b" });
   });
@@ -22,8 +46,20 @@ describe("enabledProviders", () => {
   });
   it("knows all the major providers", () => {
     const env: Env = {};
-    for (const k of ["GOOGLE", "GITHUB", "MICROSOFT", "APPLE", "TWITTER", "DISCORD", "FACEBOOK", "LINKEDIN"]) { env[`${k}_CLIENT_ID`] = "i"; env[`${k}_CLIENT_SECRET`] = "s"; }
-    expect(enabledProviders(env).map((x) => x.id)).toEqual(["google", "github", "microsoft", "apple", "twitter", "discord", "facebook", "linkedin"]);
+    for (const k of ["GOOGLE", "GITHUB", "MICROSOFT", "APPLE", "TWITTER", "DISCORD", "FACEBOOK", "LINKEDIN"]) {
+      env[`${k}_CLIENT_ID`] = "i";
+      env[`${k}_CLIENT_SECRET`] = "s";
+    }
+    expect(enabledProviders(env).map((x) => x.id)).toEqual([
+      "google",
+      "github",
+      "microsoft",
+      "apple",
+      "twitter",
+      "discord",
+      "facebook",
+      "linkedin",
+    ]);
   });
 });
 
@@ -34,7 +70,10 @@ describe("authStatus", () => {
   it("is off, with a specific reason, for each missing piece (self-hosted default is off)", () => {
     expect(authStatus({})).toMatchObject({ enabled: false, reason: "DATABASE_URL is not set" });
     expect(authStatus({ ...base, DATABASE_URL: undefined })).toMatchObject({ enabled: false });
-    expect(authStatus({ ...base, BETTER_AUTH_SECRET: undefined })).toMatchObject({ enabled: false, reason: "BETTER_AUTH_SECRET is not set" });
+    expect(authStatus({ ...base, BETTER_AUTH_SECRET: undefined })).toMatchObject({
+      enabled: false,
+      reason: "BETTER_AUTH_SECRET is not set",
+    });
     expect(authStatus({ ...base, BETTER_AUTH_SECRET: "short" }).reason).toContain("at least 32");
     expect(authStatus({ ...base, GITHUB_CLIENT_ID: undefined }).reason).toContain("no OAuth provider");
   });
@@ -91,31 +130,56 @@ describe("safeNext (open-redirect protection)", () => {
     expect(safeNext("/")).toBe("/");
     expect(safeNext("/dashboard?coin=ETH&tf=1h")).toBe("/dashboard?coin=ETH&tf=1h");
   });
-  it.each(["//evil.com", "https://evil.com", "http://evil.com/x", "javascript:alert(1)", "/\\evil.com", "\\\\evil.com", "evil.com", "", "/ok\nSet-Cookie: a=b", "data:text/html,x"])("rejects %j", (v) => {
+  it.each([
+    "//evil.com",
+    "https://evil.com",
+    "http://evil.com/x",
+    "javascript:alert(1)",
+    "/\\evil.com",
+    "\\\\evil.com",
+    "evil.com",
+    "",
+    "/ok\nSet-Cookie: a=b",
+    "data:text/html,x",
+  ])("rejects %j", (v) => {
     expect(safeNext(v)).toBe("/");
   });
   it("never bounces back into the auth pages", () => {
     expect(safeNext("/sign-in?next=/x")).toBe("/");
     expect(safeNext("/api/auth/callback/github")).toBe("/");
   });
-  it("handles null and undefined", () => { expect(safeNext(null)).toBe("/"); expect(safeNext(undefined)).toBe("/"); });
+  it("handles null and undefined", () => {
+    expect(safeNext(null)).toBe("/");
+    expect(safeNext(undefined)).toBe("/");
+  });
 });
 
 describe("gateDecision (fast, optimistic layer)", () => {
   const on = { enabled: true };
   it("allows everything when auth is off", () => {
     expect(gateDecision({ enabled: false, pathname: "/", hasSessionCookie: false })).toEqual({ action: "allow" });
-    expect(gateDecision({ enabled: false, pathname: "/api/ticker", hasSessionCookie: false })).toEqual({ action: "allow" });
+    expect(gateDecision({ enabled: false, pathname: "/api/ticker", hasSessionCookie: false })).toEqual({
+      action: "allow",
+    });
   });
   it("sends anonymous page requests to sign-in and remembers where they were going", () => {
-    expect(gateDecision({ ...on, pathname: "/", hasSessionCookie: false })).toEqual({ action: "redirect", to: "/sign-in" });
-    expect(gateDecision({ ...on, pathname: "/x", search: "?a=1", hasSessionCookie: false })).toEqual({ action: "redirect", to: "/sign-in?next=%2Fx%3Fa%3D1" });
+    expect(gateDecision({ ...on, pathname: "/", hasSessionCookie: false })).toEqual({
+      action: "redirect",
+      to: "/sign-in",
+    });
+    expect(gateDecision({ ...on, pathname: "/x", search: "?a=1", hasSessionCookie: false })).toEqual({
+      action: "redirect",
+      to: "/sign-in?next=%2Fx%3Fa%3D1",
+    });
   });
   it("answers anonymous API requests with 401, not a redirect", () => {
-    expect(gateDecision({ ...on, pathname: "/api/ticker", hasSessionCookie: false })).toEqual({ action: "unauthorized" });
+    expect(gateDecision({ ...on, pathname: "/api/ticker", hasSessionCookie: false })).toEqual({
+      action: "unauthorized",
+    });
   });
   it("lets public paths through anonymously (sign-in, auth endpoints, health)", () => {
-    for (const p of ["/sign-in", "/api/auth/sign-in/social", "/api/auth/callback/github", "/api/health"]) expect(gateDecision({ ...on, pathname: p, hasSessionCookie: false })).toEqual({ action: "allow" });
+    for (const p of ["/sign-in", "/api/auth/sign-in/social", "/api/auth/callback/github", "/api/health"])
+      expect(gateDecision({ ...on, pathname: p, hasSessionCookie: false })).toEqual({ action: "allow" });
   });
   it("lets a cookie-holder through to the app", () => {
     expect(gateDecision({ ...on, pathname: "/", hasSessionCookie: true })).toEqual({ action: "allow" });
@@ -123,7 +187,9 @@ describe("gateDecision (fast, optimistic layer)", () => {
   });
   it("REGRESSION: never bounces away from /sign-in because of a cookie (an invalid cookie would cause a redirect loop)", () => {
     expect(gateDecision({ ...on, pathname: "/sign-in", hasSessionCookie: true })).toEqual({ action: "allow" });
-    expect(gateDecision({ ...on, pathname: "/sign-in", search: "?next=%2F", hasSessionCookie: true })).toEqual({ action: "allow" });
+    expect(gateDecision({ ...on, pathname: "/sign-in", search: "?next=%2F", hasSessionCookie: true })).toEqual({
+      action: "allow",
+    });
     expect(gateDecision({ ...on, pathname: "/sign-in", hasSessionCookie: false })).toEqual({ action: "allow" });
   });
   it("lets a request with the correct smoke token through the proxy, on any path", () => {
@@ -133,9 +199,13 @@ describe("gateDecision (fast, optimistic layer)", () => {
   });
   it("still refuses a wrong, missing or unconfigured smoke token at the proxy", () => {
     const anon = { ...on, pathname: "/api/ticker", hasSessionCookie: false };
-    expect(gateDecision({ ...anon, smokeToken: "s3cret", presentedToken: "wrong" })).toEqual({ action: "unauthorized" });
+    expect(gateDecision({ ...anon, smokeToken: "s3cret", presentedToken: "wrong" })).toEqual({
+      action: "unauthorized",
+    });
     expect(gateDecision({ ...anon, smokeToken: "s3cret", presentedToken: null })).toEqual({ action: "unauthorized" });
-    expect(gateDecision({ ...anon, smokeToken: undefined, presentedToken: "anything" })).toEqual({ action: "unauthorized" });
+    expect(gateDecision({ ...anon, smokeToken: undefined, presentedToken: "anything" })).toEqual({
+      action: "unauthorized",
+    });
     expect(gateDecision({ ...anon, smokeToken: "", presentedToken: "" })).toEqual({ action: "unauthorized" });
   });
   it("does not treat look-alike paths as public", () => {
@@ -159,23 +229,49 @@ describe("tokensMatch", () => {
 });
 
 describe("checkApiAccess (strict layer)", () => {
-  const never = async () => { throw new Error("should not be called"); };
+  const never = async () => {
+    throw new Error("should not be called");
+  };
   it("is open when auth is off, without touching the session", async () => {
     expect(await checkApiAccess({ enabled: false, getUser: never })).toEqual({ ok: true, via: "open" });
   });
   it("accepts a verified session", async () => {
-    expect(await checkApiAccess({ enabled: true, getUser: async () => ({ id: "u1" }) })).toEqual({ ok: true, via: "session", userId: "u1" });
+    expect(await checkApiAccess({ enabled: true, getUser: async () => ({ id: "u1" }) })).toEqual({
+      ok: true,
+      via: "session",
+      userId: "u1",
+    });
   });
   it("refuses when there is no verified session, even though a cookie may exist", async () => {
     expect(await checkApiAccess({ enabled: true, getUser: async () => null })).toEqual({ ok: false, status: 401 });
   });
   it("fails closed when the session lookup throws (database down)", async () => {
-    expect(await checkApiAccess({ enabled: true, getUser: async () => { throw new Error("db down"); } })).toEqual({ ok: false, status: 401 });
+    expect(
+      await checkApiAccess({
+        enabled: true,
+        getUser: async () => {
+          throw new Error("db down");
+        },
+      }),
+    ).toEqual({ ok: false, status: 401 });
   });
   it("accepts the smoke token only when it is configured AND matches, and skips the session lookup", async () => {
-    expect(await checkApiAccess({ enabled: true, smokeToken: "s3cret", presentedToken: "s3cret", getUser: never })).toEqual({ ok: true, via: "smoke-token" });
-    expect(await checkApiAccess({ enabled: true, smokeToken: "s3cret", presentedToken: "wrong", getUser: async () => null })).toEqual({ ok: false, status: 401 });
-    expect(await checkApiAccess({ enabled: true, smokeToken: undefined, presentedToken: "anything", getUser: async () => null })).toEqual({ ok: false, status: 401 });
-    expect(await checkApiAccess({ enabled: true, smokeToken: "", presentedToken: "", getUser: async () => null })).toEqual({ ok: false, status: 401 });
+    expect(
+      await checkApiAccess({ enabled: true, smokeToken: "s3cret", presentedToken: "s3cret", getUser: never }),
+    ).toEqual({ ok: true, via: "smoke-token" });
+    expect(
+      await checkApiAccess({ enabled: true, smokeToken: "s3cret", presentedToken: "wrong", getUser: async () => null }),
+    ).toEqual({ ok: false, status: 401 });
+    expect(
+      await checkApiAccess({
+        enabled: true,
+        smokeToken: undefined,
+        presentedToken: "anything",
+        getUser: async () => null,
+      }),
+    ).toEqual({ ok: false, status: 401 });
+    expect(
+      await checkApiAccess({ enabled: true, smokeToken: "", presentedToken: "", getUser: async () => null }),
+    ).toEqual({ ok: false, status: 401 });
   });
 });

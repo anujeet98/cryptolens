@@ -18,16 +18,24 @@ export function useMtfRsi(symbol: string, market: MarketType): Partial<Record<Ti
             const r = await fetch(`/api/candles?symbol=${symbol}&market=${market}&tf=${tf}&limit=150`);
             if (!r.ok) return [tf, null] as const;
             const c: Candle[] = await r.json();
-            const v = rsi(c.map((x) => x.close), 14).at(-1);
+            const v = rsi(
+              c.map((x) => x.close),
+              14,
+            ).at(-1);
             return [tf, v ?? null] as const;
-          } catch { return [tf, null] as const; }
+          } catch {
+            return [tf, null] as const;
+          }
         }),
       );
       if (!dead) setState({ key, v: Object.fromEntries(res.filter((x) => x[1] !== null)) });
     };
     run();
     const i = setInterval(run, 30_000);
-    return () => { dead = true; clearInterval(i); };
+    return () => {
+      dead = true;
+      clearInterval(i);
+    };
   }, [symbol, market, key]);
   return state.key === key ? state.v : {};
 }

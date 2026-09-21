@@ -36,6 +36,8 @@ jobs:
       - name: Typecheck
         # Next generates global types (e.g. LayoutProps) into .next/types, which a fresh checkout does not have.
         run: npm run typecheck
+      - name: Formatting
+        run: npm run format:check
       - name: Lint
         run: npm run lint
       - name: Unit tests

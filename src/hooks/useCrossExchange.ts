@@ -29,12 +29,20 @@ export function useCrossExchange(base: string): CrossExchangeState {
         if (!dead) setSt({ base, rows: j.rows, errors: j.errors, loading: false, updatedAt: Date.now() });
       } catch (e) {
         if (dead || (e instanceof DOMException && e.name === "AbortError")) return;
-        setSt((p) => ({ ...(p.base === base ? p : EMPTY(base)), loading: false, error: e instanceof Error ? e.message : "failed" }));
+        setSt((p) => ({
+          ...(p.base === base ? p : EMPTY(base)),
+          loading: false,
+          error: e instanceof Error ? e.message : "failed",
+        }));
       }
     };
     poll();
     const i = setInterval(poll, 5000);
-    return () => { dead = true; ctl.abort(); clearInterval(i); };
+    return () => {
+      dead = true;
+      ctl.abort();
+      clearInterval(i);
+    };
   }, [base]);
 
   return st.base === base ? st : EMPTY(base);

@@ -54,13 +54,22 @@ export function useLiveMarket(symbol: string, market: MarketType, tf: Timeframe)
           const k = data.k;
           pending.current.c = {
             time: Math.floor(k.t / 1000),
-            open: +k.o, high: +k.h, low: +k.l, close: +k.c,
-            volume: +k.v, quoteVolume: +k.q, closed: k.x,
+            open: +k.o,
+            high: +k.h,
+            low: +k.l,
+            close: +k.c,
+            volume: +k.v,
+            quoteVolume: +k.q,
+            closed: k.x,
           };
         } else if (stream.includes("@ticker")) {
           pending.current.t = {
-            price: +data.c, changePct: +data.P, high: +data.h, low: +data.l,
-            quoteVolume: +data.q, timestamp: data.E,
+            price: +data.c,
+            changePct: +data.P,
+            high: +data.h,
+            low: +data.l,
+            quoteVolume: +data.q,
+            timestamp: data.E,
           };
         }
       };

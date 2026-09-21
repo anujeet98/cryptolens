@@ -16,7 +16,9 @@ async function handle(req: NextRequest) {
   try {
     const c = getConnector(exchange);
     if (!c.getOrderBookSnapshot) return fail("order book not supported", 404);
-    return NextResponse.json(await c.getOrderBookSnapshot(symbol, market, 1000), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await c.getOrderBookSnapshot(symbol, market, 1000), {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (e) {
     return fail(e);
   }

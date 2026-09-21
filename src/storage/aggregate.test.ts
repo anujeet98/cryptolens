@@ -47,7 +47,12 @@ describe("MinuteAggregator", () => {
     a.markUp(s(190)); // back in minute 3; minutes 1 and 2 saw nothing
     a.add(s(200), 101, 300, true);
     const out = a.flush(s(300));
-    expect(out.map((m) => [m.ts - T / 1000, m.gap])).toEqual([[0, true], [60, true], [120, true], [180, true]]);
+    expect(out.map((m) => [m.ts - T / 1000, m.gap])).toEqual([
+      [0, true],
+      [60, true],
+      [120, true],
+      [180, true],
+    ]);
     expect(out[1].open).toBeNull(); // silent minute: zero flow, no prices
     expect(out[1].buyUsd + out[1].sellUsd).toBe(0);
     a.add(s(310), 102, 100, true);

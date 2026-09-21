@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { LiqStore, parseForceOrder, type LiqEvent } from "./liqs";
 
 const T0 = 1_700_000_000_000;
-const ev = (dtSec: number, usd: number, side: "long" | "short", symbol = "BTCUSDT"): LiqEvent => ({ t: T0 + dtSec * 1000, symbol, side, price: 100, usd });
+const ev = (dtSec: number, usd: number, side: "long" | "short", symbol = "BTCUSDT"): LiqEvent => ({
+  t: T0 + dtSec * 1000,
+  symbol,
+  side,
+  price: 100,
+  usd,
+});
 
 describe("parseForceOrder", () => {
   const base = { s: "CAPUSDT", S: "BUY", p: "0.0718", ap: "0.0642105", z: "18182", q: "18182", T: T0 };

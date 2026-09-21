@@ -8,14 +8,39 @@ const STEP = 3600;
 const fromReturns = (rs: number[], start = 100): Candle[] => {
   let prev = start;
   return rs.map((r, i) => {
-    const o = prev, c = o * (1 + r);
+    const o = prev,
+      c = o * (1 + r);
     prev = c;
-    return { time: i * STEP, open: o, high: Math.max(o, c), low: Math.min(o, c), close: c, volume: 1, quoteVolume: c, closed: true };
+    return {
+      time: i * STEP,
+      open: o,
+      high: Math.max(o, c),
+      low: Math.min(o, c),
+      close: c,
+      volume: 1,
+      quoteVolume: c,
+      closed: true,
+    };
   });
 };
-const cd = (time: number, open: number, close: number): Candle => ({ time, open, high: Math.max(open, close), low: Math.min(open, close), close, volume: 1, quoteVolume: close, closed: true });
+const cd = (time: number, open: number, close: number): Candle => ({
+  time,
+  open,
+  high: Math.max(open, close),
+  low: Math.min(open, close),
+  close,
+  volume: 1,
+  quoteVolume: close,
+  closed: true,
+});
 
-function prng(seed: number) { let s = seed; return () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; }; }
+function prng(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
 
 describe("forwardReturn", () => {
   it("enters at the next open and exits at the horizon close", () => {
@@ -58,7 +83,10 @@ describe("runStudy", () => {
   it("never shows the signal a bar beyond the one it labels, and respects the window", () => {
     const candles = fromReturns(Array.from({ length: 60 }, () => 0.001));
     const seen: { last: number; len: number }[] = [];
-    const spy: SignalFn = (w) => { seen.push({ last: w.at(-1)!.time, len: w.length }); return "x"; };
+    const spy: SignalFn = (w) => {
+      seen.push({ last: w.at(-1)!.time, len: w.length });
+      return "x";
+    };
     runStudy(candles, spy, { horizons: [1], window: 20 });
     expect(seen.length).toBeGreaterThan(0);
     expect(Math.max(...seen.map((s) => s.len))).toBeLessThanOrEqual(20);
@@ -87,21 +115,27 @@ describe("runStudy", () => {
     const rl = prng(99);
     const random: SignalFn = () => (rl() < 0.5 ? "A" : "B");
     const r = runStudy(candles, random, { horizons: [1, 12], window: 50 });
-    for (const label of ["A", "B"]) for (const h of [1, 12]) {
-      const s = r.byLabel[label][h];
-      expect(s.reliable).toBe(true);
-      expect(Math.abs(s.t!)).toBeLessThan(3.5);
-    }
+    for (const label of ["A", "B"])
+      for (const h of [1, 12]) {
+        const s = r.byLabel[label][h];
+        expect(s.reliable).toBe(true);
+        expect(Math.abs(s.t!)).toBeLessThan(3.5);
+      }
   });
 
   it("deflates the sample size for overlapping horizons and withholds t when data is thin", () => {
     const candles = fromReturns(Array.from({ length: 200 }, () => 0.001));
     const r = runStudy(candles, () => "all", { horizons: [1, 10], window: 20 });
-    const a = r.byLabel.all[1], b = r.byLabel.all[10];
+    const a = r.byLabel.all[1],
+      b = r.byLabel.all[10];
     expect(a.nEff).toBe(a.n / 1);
     expect(b.nEff).toBe(b.n / 10);
     expect(b.nEff).toBeLessThan(a.nEff);
-    const thin = runStudy(fromReturns([0.01, 0.01, 0.01, 0.01, 0.01]), () => "t", { horizons: [3], window: 1, warmup: 1 });
+    const thin = runStudy(fromReturns([0.01, 0.01, 0.01, 0.01, 0.01]), () => "t", {
+      horizons: [3],
+      window: 1,
+      warmup: 1,
+    });
     expect(thin.byLabel.t[3].t).toBeNull(); // nEff < 2
     expect(thin.byLabel.t[3].reliable).toBe(false);
     expect(MIN_EFF).toBeGreaterThan(2);
@@ -109,7 +143,10 @@ describe("runStudy", () => {
 
   it("skips bars with no opinion but still counts them in the baseline", () => {
     const candles = fromReturns(Array.from({ length: 100 }, (_, i) => (i % 2 ? 0.01 : -0.01)));
-    const r = runStudy(candles, (w) => ((w.at(-1)!.time / STEP) % 2 === 0 ? "even" : null), { horizons: [1], window: 10 });
+    const r = runStudy(candles, (w) => ((w.at(-1)!.time / STEP) % 2 === 0 ? "even" : null), {
+      horizons: [1],
+      window: 10,
+    });
     expect(Object.keys(r.byLabel)).toEqual(["even"]);
     expect(r.labelled).toBeLessThan(r.baseline[1].n + 1);
     expect(r.baseline[1].n).toBeGreaterThan(r.byLabel.even[1].n);
@@ -143,7 +180,12 @@ describe("simulate", () => {
     const c = [cd(0, 100, 100), cd(1, 105, 105), cd(2, 105, 105)]; // gap up from 100 to 105 at bar 1's open
     const long = simulate(c, [1, 0, 0], 0, opts()); // enter at bar 1's open (105): the gap is NOT earned
     expect(long.totalReturn).toBeCloseTo(0, 12);
-    const flip = simulate([cd(0, 100, 100), cd(1, 100, 110), cd(2, 110, 110), cd(3, 110, 99)], [1, -1, -1, 0], 0, opts(10, 0));
+    const flip = simulate(
+      [cd(0, 100, 100), cd(1, 100, 110), cd(2, 110, 110), cd(3, 110, 99)],
+      [1, -1, -1, 0],
+      0,
+      opts(10, 0),
+    );
     // bar1: enter long +10% -0.1%; bar2: exit long at open 110 (prevClose 110 -> 0), enter short, flat bar (0%), -0.2%; bar3: hold short, +10%.
     // desired[3] is decided at the last close and can never be executed, so there is no exit cost.
     expect(flip.trades).toBe(2);

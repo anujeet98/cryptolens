@@ -3,8 +3,18 @@ import type { MarketType } from "@/types/market";
 export type Level = [price: number, qty: number];
 
 /** Raw Binance depthUpdate payload, already number-parsed. Spot has no `pu`. */
-export interface DepthEvent { U: number; u: number; pu?: number; b: Level[]; a: Level[] }
-export interface DepthSnapshot { lastUpdateId: number; bids: Level[]; asks: Level[] }
+export interface DepthEvent {
+  U: number;
+  u: number;
+  pu?: number;
+  b: Level[];
+  a: Level[];
+}
+export interface DepthSnapshot {
+  lastUpdateId: number;
+  bids: Level[];
+  asks: Level[];
+}
 
 export type AcceptResult = "buffered" | "applied" | "stale" | "gap";
 
@@ -23,11 +33,19 @@ export class LocalOrderBook {
   private lastU: number | null = null;
   constructor(private market: MarketType) {}
 
-  get synced() { return this.snapId !== null; }
-  get lastUpdateId() { return this.lastU ?? this.snapId; }
+  get synced() {
+    return this.snapId !== null;
+  }
+  get lastUpdateId() {
+    return this.lastU ?? this.snapId;
+  }
 
   reset() {
-    this.bids.clear(); this.asks.clear(); this.buffer = []; this.snapId = null; this.lastU = null;
+    this.bids.clear();
+    this.asks.clear();
+    this.buffer = [];
+    this.snapId = null;
+    this.lastU = null;
   }
 
   /** Feed a WS event. Before a snapshot exists events are buffered. */
@@ -48,7 +66,11 @@ export class LocalOrderBook {
     this.lastU = null;
     const buf = this.buffer;
     this.buffer = [];
-    for (const e of buf) if (this.apply(e) === "gap") { this.reset(); return "gap"; }
+    for (const e of buf)
+      if (this.apply(e) === "gap") {
+        this.reset();
+        return "gap";
+      }
     return "ok";
   }
 
@@ -63,8 +85,14 @@ export class LocalOrderBook {
       const chained = this.market === "spot" ? e.U === this.lastU + 1 : e.pu === this.lastU;
       if (!chained) return e.u <= this.lastU ? "stale" : "gap";
     }
-    for (const [p, q] of e.b) { if (q === 0) this.bids.delete(p); else this.bids.set(p, q); }
-    for (const [p, q] of e.a) { if (q === 0) this.asks.delete(p); else this.asks.set(p, q); }
+    for (const [p, q] of e.b) {
+      if (q === 0) this.bids.delete(p);
+      else this.bids.set(p, q);
+    }
+    for (const [p, q] of e.a) {
+      if (q === 0) this.asks.delete(p);
+      else this.asks.set(p, q);
+    }
     this.lastU = e.u;
     return "applied";
   }

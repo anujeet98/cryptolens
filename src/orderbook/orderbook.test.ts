@@ -3,9 +3,30 @@ import { LocalOrderBook, type DepthEvent } from "./localBook";
 import { analyzeBook, fillPrice, findWalls, ladder, niceStep } from "./analysis";
 import { WallTracker } from "./wallTracker";
 
-const spotEv = (U: number, u: number, b: [number, number][] = [], a: [number, number][] = []): DepthEvent => ({ U, u, b, a });
-const perpEv = (U: number, u: number, pu: number, b: [number, number][] = [], a: [number, number][] = []): DepthEvent => ({ U, u, pu, b, a });
-const snap = (id: number) => ({ lastUpdateId: id, bids: [[100, 1], [99, 2]] as [number, number][], asks: [[101, 1], [102, 2]] as [number, number][] });
+const spotEv = (U: number, u: number, b: [number, number][] = [], a: [number, number][] = []): DepthEvent => ({
+  U,
+  u,
+  b,
+  a,
+});
+const perpEv = (
+  U: number,
+  u: number,
+  pu: number,
+  b: [number, number][] = [],
+  a: [number, number][] = [],
+): DepthEvent => ({ U, u, pu, b, a });
+const snap = (id: number) => ({
+  lastUpdateId: id,
+  bids: [
+    [100, 1],
+    [99, 2],
+  ] as [number, number][],
+  asks: [
+    [101, 1],
+    [102, 2],
+  ] as [number, number][],
+});
 
 describe("LocalOrderBook (spot)", () => {
   it("buffers, drops stale, bridges and applies", () => {
@@ -15,7 +36,11 @@ describe("LocalOrderBook (spot)", () => {
     expect(b.accept(spotEv(13, 14, [[98, 4]], [[101, 0]]))).toBe("buffered");
     expect(b.loadSnapshot(snap(10))).toBe("ok");
     const v = b.view();
-    expect(v.bids).toEqual([[100, 3], [99, 2], [98, 4]]);
+    expect(v.bids).toEqual([
+      [100, 3],
+      [99, 2],
+      [98, 4],
+    ]);
     expect(v.asks).toEqual([[102, 2]]); // qty 0 removed level 101
     expect(b.accept(spotEv(15, 15, [[97, 1]]))).toBe("applied");
     expect(b.lastUpdateId).toBe(15);
@@ -76,14 +101,31 @@ describe("book analysis", () => {
   });
   it("fillPrice walks levels", () => {
     // 100 USD: 1 unit @ 100.1 = 100.1 > 100 → all in first level
-    expect(fillPrice([[100, 1], [101, 1]], 100)).toBeCloseTo(100, 10);
+    expect(
+      fillPrice(
+        [
+          [100, 1],
+          [101, 1],
+        ],
+        100,
+      ),
+    ).toBeCloseTo(100, 10);
     // 150 USD: 100 @100 + 50 @101
-    const px = fillPrice([[100, 1], [101, 1]], 150)!;
+    const px = fillPrice(
+      [
+        [100, 1],
+        [101, 1],
+      ],
+      150,
+    )!;
     expect(px).toBeCloseTo(150 / (1 + 50 / 101), 8);
     expect(fillPrice([[100, 1]], 500)).toBeNull();
   });
   it("slippage grows with size; unfillable is null", () => {
-    const deepA = analyzeBook(bids.map((l) => [l[0], 500] as [number, number]), asks.map((l) => [l[0], 500] as [number, number]))!;
+    const deepA = analyzeBook(
+      bids.map((l) => [l[0], 500] as [number, number]),
+      asks.map((l) => [l[0], 500] as [number, number]),
+    )!;
     const s = deepA.impacts;
     expect(s[1].buySlippageBps!).toBeGreaterThanOrEqual(s[0].buySlippageBps!);
     expect(s[2].buySlippageBps!).toBeGreaterThanOrEqual(s[1].buySlippageBps!);
@@ -105,19 +147,46 @@ describe("book analysis", () => {
 });
 
 describe("ladder", () => {
-  it("niceStep", () => { expect(niceStep(8.1)).toBe(10); expect(niceStep(0.0012)).toBeCloseTo(0.001); expect(niceStep(2.2)).toBe(2); });
+  it("niceStep", () => {
+    expect(niceStep(8.1)).toBe(10);
+    expect(niceStep(0.0012)).toBeCloseTo(0.001);
+    expect(niceStep(2.2)).toBe(2);
+  });
   it("buckets bids down and asks up with cumulative", () => {
-    const l = ladder([[100.4, 1], [100.1, 1], [99.9, 1]], "bid", 1, 5);
+    const l = ladder(
+      [
+        [100.4, 1],
+        [100.1, 1],
+        [99.9, 1],
+      ],
+      "bid",
+      1,
+      5,
+    );
     expect(l.map((r) => r.price)).toEqual([100, 99]);
     expect(l[0].usd).toBeCloseTo(100.4 + 100.1, 8);
     expect(l[1].cumUsd).toBeCloseTo(100.4 + 100.1 + 99.9, 8);
-    const s = ladder([[100.1, 1], [100.9, 1]], "ask", 1, 5);
+    const s = ladder(
+      [
+        [100.1, 1],
+        [100.9, 1],
+      ],
+      "ask",
+      1,
+      5,
+    );
     expect(s.map((r) => r.price)).toEqual([101]);
   });
 });
 
 describe("WallTracker", () => {
-  const wall = (price: number, side: "bid" | "ask" = "bid") => ({ side, price, usd: 100_000, distancePct: 0, multiple: 10 });
+  const wall = (price: number, side: "bid" | "ask" = "bid") => ({
+    side,
+    price,
+    usd: 100_000,
+    distancePct: 0,
+    multiple: 10,
+  });
   it("reports appeared, then pulled when price never reached it", () => {
     const t = new WallTracker(3);
     expect(t.update([wall(95)], 100, 0).map((e) => e.kind)).toEqual(["appeared"]);

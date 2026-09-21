@@ -2,8 +2,16 @@ import { describe, expect, it } from "vitest";
 import { adx, bollinger, crossIndex, divergences, ema, failureSwing, macd, pivots, rsi, sma, vwap } from "./index";
 import type { Candle } from "@/types/market";
 
-const cd = (o: number, h: number, l: number, c: number, v = 1, time = 0): Candle =>
-  ({ time, open: o, high: h, low: l, close: c, volume: v, quoteVolume: v * c, closed: true });
+const cd = (o: number, h: number, l: number, c: number, v = 1, time = 0): Candle => ({
+  time,
+  open: o,
+  high: h,
+  low: l,
+  close: c,
+  volume: v,
+  quoteVolume: v * c,
+  closed: true,
+});
 
 describe("sma/ema", () => {
   it("sma", () => expect(sma([1, 2, 3, 4, 5], 3)).toEqual([null, null, 2, 3, 4]));
@@ -105,30 +113,52 @@ describe("failureSwing", () => {
 
 describe("adx", () => {
   const series = (f: (i: number) => number, n: number) =>
-    Array.from({ length: n }, (_, i) => { const c = f(i); return cd(c, c * 1.001, c * 0.999, c, 1, i); });
+    Array.from({ length: n }, (_, i) => {
+      const c = f(i);
+      return cd(c, c * 1.001, c * 0.999, c, 1, i);
+    });
 
   it("is null until 2n-1 and stays within 0..100", () => {
-    const r = adx(series((i) => 100 + i, 60), 14);
+    const r = adx(
+      series((i) => 100 + i, 60),
+      14,
+    );
     expect(r.adx.findIndex((v) => v !== null)).toBe(27); // 2n - 1
     expect(r.plusDI.findIndex((v) => v !== null)).toBe(14);
-    for (const v of r.adx) if (v !== null) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(100); }
+    for (const v of r.adx)
+      if (v !== null) {
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(100);
+      }
   });
   it("reads a steady uptrend as strong with +DI above -DI", () => {
-    const r = adx(series((i) => 100 * 1.004 ** i, 120), 14);
+    const r = adx(
+      series((i) => 100 * 1.004 ** i, 120),
+      14,
+    );
     expect(r.adx.at(-1)!).toBeGreaterThan(40);
     expect(r.plusDI.at(-1)!).toBeGreaterThan(r.minusDI.at(-1)!);
   });
   it("mirrors for a downtrend", () => {
-    const r = adx(series((i) => 100 * 0.996 ** i, 120), 14);
+    const r = adx(
+      series((i) => 100 * 0.996 ** i, 120),
+      14,
+    );
     expect(r.adx.at(-1)!).toBeGreaterThan(40);
     expect(r.minusDI.at(-1)!).toBeGreaterThan(r.plusDI.at(-1)!);
   });
   it("reads a sideways oscillation as weak", () => {
-    const r = adx(series((i) => 100 + 2 * Math.sin(i / 2), 160), 14);
+    const r = adx(
+      series((i) => 100 + 2 * Math.sin(i / 2), 160),
+      14,
+    );
     expect(r.adx.at(-1)!).toBeLessThan(25);
   });
   it("returns all-null when there is too little data", () => {
-    const r = adx(series((i) => 100 + i, 20), 14);
+    const r = adx(
+      series((i) => 100 + i, 20),
+      14,
+    );
     expect(r.adx.every((v) => v === null)).toBe(true);
   });
 });

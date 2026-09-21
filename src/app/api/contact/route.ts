@@ -17,22 +17,31 @@ function cors(req: NextRequest): Record<string, string> {
   }
   return h;
 }
-const reply = (req: NextRequest, body: object, status: number) => NextResponse.json(body, { status, headers: cors(req) });
+const reply = (req: NextRequest, body: object, status: number) =>
+  NextResponse.json(body, { status, headers: cors(req) });
 
 /** The caller's address, hashed with a server secret so the database never holds a raw IP. Used only for rate limiting. */
 function ipHash(req: NextRequest): string {
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
-  return createHash("sha256").update(`${process.env.BETTER_AUTH_SECRET ?? ""}|${ip}`).digest("hex").slice(0, 32);
+  const ip =
+    (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
+  return createHash("sha256")
+    .update(`${process.env.BETTER_AUTH_SECRET ?? ""}|${ip}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 // Browser preflight for the landing page's cross-origin POST.
 export function OPTIONS(req: NextRequest) {
-  return new NextResponse(null, { status: originAllowed(req.headers.get("origin"), process.env) ? 204 : 403, headers: cors(req) });
+  return new NextResponse(null, {
+    status: originAllowed(req.headers.get("origin"), process.env) ? 204 : 403,
+    headers: cors(req),
+  });
 }
 
 export async function POST(req: NextRequest) {
   // Messages live in the database that authentication uses, so the endpoint exists only where that is configured.
-  if (!authStatus(process.env).enabled) return reply(req, { error: "Contact is not available on this deployment." }, 404);
+  if (!authStatus(process.env).enabled)
+    return reply(req, { error: "Contact is not available on this deployment." }, 404);
   if (!originAllowed(req.headers.get("origin"), process.env)) return reply(req, { error: "forbidden" }, 403);
   if (Number(req.headers.get("content-length") ?? 0) > 16_000) return reply(req, { error: "That is too long." }, 413);
   const parsed = parseContact(await req.json().catch(() => null));

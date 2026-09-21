@@ -1,7 +1,20 @@
 /** One aggregated trade. `buy` = aggressor was a buyer (taker lifted the ask). */
-export interface Trade { t: number; price: number; usd: number; buy: boolean }
+export interface Trade {
+  t: number;
+  price: number;
+  usd: number;
+  buy: boolean;
+}
 
-interface Bucket { sec: number; buyUsd: number; sellUsd: number; buyN: number; sellN: number; first: number; last: number }
+interface Bucket {
+  sec: number;
+  buyUsd: number;
+  sellUsd: number;
+  buyN: number;
+  sellN: number;
+  first: number;
+  last: number;
+}
 
 export const FLOW_WINDOWS = [
   { label: "30s", sec: 30 },
@@ -28,7 +41,9 @@ export interface FlowWindow {
 
 export type FlowSignal = "BUYERS" | "SELLERS" | "BALANCED" | "ABSORPTION_SELL" | "ABSORPTION_BUY";
 
-export interface LargeTrade extends Trade { multiple: number }
+export interface LargeTrade extends Trade {
+  multiple: number;
+}
 
 export interface FlowSnapshot {
   windows: FlowWindow[];
@@ -73,12 +88,22 @@ export class FlowStore {
       const cutoff = sec - KEEP_SEC;
       while (this.buckets.length && this.buckets[0].sec <= cutoff) {
         const o = this.buckets.shift()!;
-        this.usdSum -= o.buyUsd + o.sellUsd; this.nSum -= o.buyN + o.sellN;
+        this.usdSum -= o.buyUsd + o.sellUsd;
+        this.nSum -= o.buyN + o.sellN;
       }
     }
-    if (tr.buy) { b.buyUsd += tr.usd; b.buyN++; this.cvd += tr.usd; } else { b.sellUsd += tr.usd; b.sellN++; this.cvd -= tr.usd; }
+    if (tr.buy) {
+      b.buyUsd += tr.usd;
+      b.buyN++;
+      this.cvd += tr.usd;
+    } else {
+      b.sellUsd += tr.usd;
+      b.sellN++;
+      this.cvd -= tr.usd;
+    }
     b.last = tr.price;
-    this.usdSum += tr.usd; this.nSum++;
+    this.usdSum += tr.usd;
+    this.nSum++;
 
     const thr = this.largeThreshold();
     if (tr.usd >= thr) {
@@ -99,10 +124,16 @@ export class FlowStore {
     const collectedSec = this.startedAt ? nowSec - this.startedAt + 1 : 0;
     const windows = FLOW_WINDOWS.map((w): FlowWindow => {
       const from = nowSec - w.sec;
-      let buyUsd = 0, sellUsd = 0, trades = 0, first: number | null = null, last: number | null = null;
+      let buyUsd = 0,
+        sellUsd = 0,
+        trades = 0,
+        first: number | null = null,
+        last: number | null = null;
       for (const b of this.buckets) {
         if (b.sec <= from) continue;
-        buyUsd += b.buyUsd; sellUsd += b.sellUsd; trades += b.buyN + b.sellN;
+        buyUsd += b.buyUsd;
+        sellUsd += b.sellUsd;
+        trades += b.buyN + b.sellN;
         if (first === null) first = b.first;
         last = b.last;
       }
@@ -110,17 +141,36 @@ export class FlowStore {
       const buyPct = total > 0 ? (buyUsd / total) * 100 : 50;
       const priceChangePct = first && last ? ((last - first) / first) * 100 : 0;
       const deltaUsd = buyUsd - sellUsd;
-      return { label: w.label, sec: w.sec, buyUsd, sellUsd, deltaUsd, buyPct, trades, priceChangePct, covered: collectedSec >= w.sec, signal: classify(buyPct, deltaUsd, total, priceChangePct) };
+      return {
+        label: w.label,
+        sec: w.sec,
+        buyUsd,
+        sellUsd,
+        deltaUsd,
+        buyPct,
+        trades,
+        priceChangePct,
+        covered: collectedSec >= w.sec,
+        signal: classify(buyPct, deltaUsd, total, priceChangePct),
+      };
     });
 
     const cvdSeries: { t: number; v: number }[] = [];
     let run = this.cvd - this.buckets.reduce((s, b) => s + b.buyUsd - b.sellUsd, 0);
-    for (const b of this.buckets) { run += b.buyUsd - b.sellUsd; cvdSeries.push({ t: b.sec, v: run }); }
+    for (const b of this.buckets) {
+      run += b.buyUsd - b.sellUsd;
+      cvdSeries.push({ t: b.sec, v: run });
+    }
 
     const cutoff = nowMs - KEEP_SEC * 1000;
     const recent = this.large.filter((l) => l.t >= cutoff);
     return {
-      windows, cvd: this.cvd, cvdSeries, largeThreshold: this.largeThreshold(), large: recent, collectedSec,
+      windows,
+      cvd: this.cvd,
+      cvdSeries,
+      largeThreshold: this.largeThreshold(),
+      large: recent,
+      collectedSec,
       largeBuyUsd: recent.filter((l) => l.buy).reduce((s, l) => s + l.usd, 0),
       largeSellUsd: recent.filter((l) => !l.buy).reduce((s, l) => s + l.usd, 0),
     };

@@ -10,7 +10,8 @@ describe("RISK_TABLE", () => {
       expect(t.p90).toBeGreaterThan(t.p80);
     }
     for (let i = 1; i < RISK_HORIZONS.length; i++) {
-      const a = RISK_TABLE[RISK_HORIZONS[i - 1]], b = RISK_TABLE[RISK_HORIZONS[i]];
+      const a = RISK_TABLE[RISK_HORIZONS[i - 1]],
+        b = RISK_TABLE[RISK_HORIZONS[i]];
       expect(b.p50).toBeGreaterThan(a.p50);
       expect(b.p90).toBeGreaterThan(a.p90);
     }
@@ -29,7 +30,8 @@ describe("forecastRanges", () => {
     expect(f[2].p90).toBeCloseTo(0.5 * RISK_TABLE[24].p90, 12);
   });
   it("doubles when ATR doubles", () => {
-    const a = forecastRanges(0.3), b = forecastRanges(0.6);
+    const a = forecastRanges(0.3),
+      b = forecastRanges(0.6);
     for (let i = 0; i < a.length; i++) expect(b[i].p80).toBeCloseTo(2 * a[i].p80, 12);
   });
 });
@@ -59,6 +61,7 @@ describe("regimeHint", () => {
     expect(regimeHint("NORMAL")).toBeNull();
   });
   it("never claims a breakout or a direction", () => {
-    for (const v of ["SQUEEZE", "LOW", "HIGH", "EXTREME"] as const) expect(regimeHint(v)).not.toMatch(/breakout|rally|drop|bullish|bearish/i);
+    for (const v of ["SQUEEZE", "LOW", "HIGH", "EXTREME"] as const)
+      expect(regimeHint(v)).not.toMatch(/breakout|rally|drop|bullish|bearish/i);
   });
 });

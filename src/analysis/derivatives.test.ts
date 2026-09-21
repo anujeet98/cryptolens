@@ -4,7 +4,8 @@ import { analyzeOi, interpretOi } from "./openInterest";
 import type { DerivativesSnapshot, FundingPoint, OiPoint } from "@/types/market";
 
 const NOW = 1_800_000_000;
-const fh = (rates: number[], stepH = 8): FundingPoint[] => rates.map((r, i) => ({ time: NOW - (rates.length - i) * stepH * 3600, rate: r }));
+const fh = (rates: number[], stepH = 8): FundingPoint[] =>
+  rates.map((r, i) => ({ time: NOW - (rates.length - i) * stepH * 3600, rate: r }));
 
 describe("funding", () => {
   it("infers interval", () => {
@@ -51,10 +52,22 @@ describe("open interest", () => {
     expect(interpretOi(0.05, 5)).toBe("NEUTRAL");
     expect(interpretOi(2, 0.1)).toBe("NEUTRAL");
   });
-  const snap = (oi: number, mark: number): DerivativesSnapshot =>
-    ({ exchange: "binance", symbol: "X", timestamp: NOW * 1000, markPrice: mark, indexPrice: mark, fundingRate: 0, nextFundingTime: 0, openInterest: oi, openInterestUsd: oi * mark });
+  const snap = (oi: number, mark: number): DerivativesSnapshot => ({
+    exchange: "binance",
+    symbol: "X",
+    timestamp: NOW * 1000,
+    markPrice: mark,
+    indexPrice: mark,
+    fundingRate: 0,
+    nextFundingTime: 0,
+    openInterest: oi,
+    openInterestUsd: oi * mark,
+  });
   const hist = (n: number, f: (i: number) => { oi: number; px: number }): OiPoint[] =>
-    Array.from({ length: n }, (_, i) => { const { oi, px } = f(i); return { time: NOW - (n - i) * 300, oi, oiUsd: oi * px }; });
+    Array.from({ length: n }, (_, i) => {
+      const { oi, px } = f(i);
+      return { time: NOW - (n - i) * 300, oi, oiUsd: oi * px };
+    });
 
   it("computes changes in contracts with implied historical price", () => {
     const h = hist(300, () => ({ oi: 1000, px: 100 }));
@@ -77,5 +90,11 @@ describe("open interest", () => {
     expect(a.windows.find((w) => w.label === "24h")!.oiChangePct).toBeNull();
     expect(a.zScore!).toBeGreaterThan(5);
   });
-  it("too little history → null", () => expect(analyzeOi(hist(5, () => ({ oi: 1, px: 1 })), snap(1, 1))).toBeNull());
+  it("too little history → null", () =>
+    expect(
+      analyzeOi(
+        hist(5, () => ({ oi: 1, px: 1 })),
+        snap(1, 1),
+      ),
+    ).toBeNull());
 });

@@ -24,23 +24,60 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-export function TechnicalsPanel({ t, mtfRsi, tf }: { t: Technicals | null; mtfRsi: Partial<Record<Timeframe, number>>; tf: Timeframe }) {
-  if (!t) return <div className="rounded border border-line bg-panel p-4 text-sm text-muted">Waiting for enough candle history…</div>;
+export function TechnicalsPanel({
+  t,
+  mtfRsi,
+  tf,
+}: {
+  t: Technicals | null;
+  mtfRsi: Partial<Record<Timeframe, number>>;
+  tf: Timeframe;
+}) {
+  if (!t)
+    return (
+      <div className="rounded border border-line bg-panel p-4 text-sm text-muted">
+        Waiting for enough candle history…
+      </div>
+    );
   const ema = t.mas.filter((m) => m.kind === "EMA");
   const smas = t.mas.filter((m) => m.kind === "SMA");
-  const divs = [...t.rsiDivergences.map((d) => ({ ...d, src: "RSI" })), ...(t.macd?.divergences ?? []).map((d) => ({ ...d, src: "MACD" }))];
+  const divs = [
+    ...t.rsiDivergences.map((d) => ({ ...d, src: "RSI" })),
+    ...(t.macd?.divergences ?? []).map((d) => ({ ...d, src: "MACD" })),
+  ];
   const b = t.bollinger;
   return (
     <section className="rounded border border-line bg-panel">
       <div className="grid md:grid-cols-4">
         <Block title={`Moving averages · ${tf}`}>
-          <Row k="EMA structure" v={t.alignment} cls={t.alignment === "BULLISH" ? "text-bull" : t.alignment === "BEARISH" ? "text-bear" : "text-muted"} />
+          <Row
+            k="EMA structure"
+            v={t.alignment}
+            cls={t.alignment === "BULLISH" ? "text-bull" : t.alignment === "BEARISH" ? "text-bear" : "text-muted"}
+          />
           {[...ema, ...smas].map((m) => (
-            <Row key={m.kind + m.period} k={`${m.kind}${m.period}`}
-              v={m.value === null ? "n/a" : <>{fmtPrice(m.value)} <span className={tone(m.priceAbove)}>{fmtPct(m.distancePct!)}</span> <span className="text-muted">{m.slopePct! >= 0 ? "↗" : "↘"}</span></>} />
+            <Row
+              key={m.kind + m.period}
+              k={`${m.kind}${m.period}`}
+              v={
+                m.value === null ? (
+                  "n/a"
+                ) : (
+                  <>
+                    {fmtPrice(m.value)} <span className={tone(m.priceAbove)}>{fmtPct(m.distancePct!)}</span>{" "}
+                    <span className="text-muted">{m.slopePct! >= 0 ? "↗" : "↘"}</span>
+                  </>
+                )
+              }
+            />
           ))}
           {t.crosses.map((x) => (
-            <Row key={x.pair} k={x.pair} v={`${x.dir === "up" ? "bullish" : "bearish"} cross ${x.barsAgo}b ago`} cls={x.dir === "up" ? "text-bull" : "text-bear"} />
+            <Row
+              key={x.pair}
+              k={x.pair}
+              v={`${x.dir === "up" ? "bullish" : "bearish"} cross ${x.barsAgo}b ago`}
+              cls={x.dir === "up" ? "text-bull" : "text-bear"}
+            />
           ))}
         </Block>
 
@@ -49,9 +86,16 @@ export function TechnicalsPanel({ t, mtfRsi, tf }: { t: Technicals | null; mtfRs
           <Row k="RSI 7" v={t.rsi7?.toFixed(1) ?? "n/a"} cls={t.rsi7 ? rsiTone(t.rsi7) : ""} />
           <Row k="Zone" v={t.rsiZone} cls={t.rsiZone === "NEUTRAL" ? "text-muted" : "text-warn"} />
           {MTF.map((x) => (
-            <Row key={x} k={`RSI 14 · ${x}`} v={mtfRsi[x] !== undefined ? mtfRsi[x]!.toFixed(1) : "…"} cls={mtfRsi[x] !== undefined ? rsiTone(mtfRsi[x]!) : "text-muted"} />
+            <Row
+              key={x}
+              k={`RSI 14 · ${x}`}
+              v={mtfRsi[x] !== undefined ? mtfRsi[x]!.toFixed(1) : "…"}
+              cls={mtfRsi[x] !== undefined ? rsiTone(mtfRsi[x]!) : "text-muted"}
+            />
           ))}
-          {t.rsiFailureSwing && <Row k="Failure swing" v={t.rsiFailureSwing} cls={tone(t.rsiFailureSwing === "bullish")} />}
+          {t.rsiFailureSwing && (
+            <Row k="Failure swing" v={t.rsiFailureSwing} cls={tone(t.rsiFailureSwing === "bullish")} />
+          )}
           {t.rsiNote && <p className="mt-1 text-[11px] leading-snug text-warn/80">{t.rsiNote}</p>}
         </Block>
 
@@ -59,34 +103,61 @@ export function TechnicalsPanel({ t, mtfRsi, tf }: { t: Technicals | null; mtfRs
           {t.macd ? (
             <>
               <Row k="State" v={t.macd.state} cls={tone(t.macd.state === "BULLISH")} />
-              <Row k="Momentum" v={t.macd.momentum} cls={t.macd.momentum === "WEAKENING" ? "text-warn" : "text-foreground"} />
+              <Row
+                k="Momentum"
+                v={t.macd.momentum}
+                cls={t.macd.momentum === "WEAKENING" ? "text-warn" : "text-foreground"}
+              />
               <Row k="MACD" v={t.macd.macd.toPrecision(4)} />
               <Row k="Signal" v={t.macd.signal.toPrecision(4)} />
               <Row k="Histogram" v={t.macd.hist.toPrecision(4)} cls={tone(t.macd.hist >= 0)} />
               <Row k="Hist Δ" v={t.macd.histAccel.toPrecision(3)} cls={tone(t.macd.histAccel >= 0)} />
-              {t.macd.cross && <Row k="Crossover" v={`${t.macd.cross.dir === "up" ? "bullish" : "bearish"} ${t.macd.cross.barsAgo}b ago`} cls={tone(t.macd.cross.dir === "up")} />}
+              {t.macd.cross && (
+                <Row
+                  k="Crossover"
+                  v={`${t.macd.cross.dir === "up" ? "bullish" : "bearish"} ${t.macd.cross.barsAgo}b ago`}
+                  cls={tone(t.macd.cross.dir === "up")}
+                />
+              )}
             </>
-          ) : <span className="text-muted">n/a</span>}
+          ) : (
+            <span className="text-muted">n/a</span>
+          )}
           <div className="mt-2 mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Divergences</div>
           {divs.length === 0 && <span className="text-muted">none detected</span>}
           {divs.map((d, i) => (
-            <Row key={i} k={`${d.src}`} v={`${d.kind} · ${d.barsAgo}b ago`} cls={d.kind.includes("bullish") ? "text-bull" : "text-bear"} />
+            <Row
+              key={i}
+              k={`${d.src}`}
+              v={`${d.kind} · ${d.barsAgo}b ago`}
+              cls={d.kind.includes("bullish") ? "text-bull" : "text-bear"}
+            />
           ))}
         </Block>
 
         <Block title="VWAP · Bollinger (20, 2)">
           <Row k="Day VWAP" v={t.vwap.day ? fmtPrice(t.vwap.day) : "n/a"} />
           <Row k="Week VWAP" v={t.vwap.week ? fmtPrice(t.vwap.week) : "n/a"} />
-          <Row k="Price vs day VWAP" v={t.vwap.event ? `${t.vwap.dayPosition} · ${t.vwap.event}` : t.vwap.dayPosition ?? "n/a"} cls={tone(t.vwap.dayPosition === null ? null : t.vwap.dayPosition === "above")} />
+          <Row
+            k="Price vs day VWAP"
+            v={t.vwap.event ? `${t.vwap.dayPosition} · ${t.vwap.event}` : (t.vwap.dayPosition ?? "n/a")}
+            cls={tone(t.vwap.dayPosition === null ? null : t.vwap.dayPosition === "above")}
+          />
           {b && (
             <>
               <div className="my-1 border-t border-line" />
               <Row k="Upper / Lower" v={`${fmtPrice(b.upper)} / ${fmtPrice(b.lower)}`} />
               <Row k="%B" v={b.percentB.toFixed(2)} />
               <Row k="Bandwidth" v={`${(b.bandwidth * 100).toFixed(2)}%`} />
-              <Row k="Volatility" v={b.squeeze ? "SQUEEZE" : b.volatility} cls={b.squeeze ? "text-squeeze" : b.volatility === "EXPANDING" ? "text-warn" : "text-muted"} />
+              <Row
+                k="Volatility"
+                v={b.squeeze ? "SQUEEZE" : b.volatility}
+                cls={b.squeeze ? "text-squeeze" : b.volatility === "EXPANDING" ? "text-warn" : "text-muted"}
+              />
               {b.walking && <Row k="Band walk" v={`${b.walking} band`} cls="text-warn" />}
-              <p className="mt-1 text-[11px] leading-snug text-muted">Touching a band is not by itself a reversal signal.</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted">
+                Touching a band is not by itself a reversal signal.
+              </p>
             </>
           )}
         </Block>

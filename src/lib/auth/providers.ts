@@ -7,7 +7,11 @@
  */
 export type ProviderId = "google" | "github" | "microsoft" | "apple" | "twitter" | "discord" | "facebook" | "linkedin";
 
-export interface ProviderMeta { id: ProviderId; label: string; prefix: string }
+export interface ProviderMeta {
+  id: ProviderId;
+  label: string;
+  prefix: string;
+}
 
 /** Order here is the order of the buttons on the sign-in page. Add a provider by adding a row (and its config in server.ts). */
 export const PROVIDERS: readonly ProviderMeta[] = [
@@ -23,7 +27,12 @@ export const PROVIDERS: readonly ProviderMeta[] = [
 
 export type Env = Record<string, string | undefined>;
 
-export interface ProviderCredentials { id: ProviderId; label: string; clientId: string; clientSecret: string }
+export interface ProviderCredentials {
+  id: ProviderId;
+  label: string;
+  clientId: string;
+  clientSecret: string;
+}
 
 const clean = (v: string | undefined) => (v ?? "").trim();
 
@@ -31,7 +40,8 @@ const clean = (v: string | undefined) => (v ?? "").trim();
 export function enabledProviders(env: Env): ProviderCredentials[] {
   const out: ProviderCredentials[] = [];
   for (const p of PROVIDERS) {
-    const clientId = clean(env[`${p.prefix}_CLIENT_ID`]), clientSecret = clean(env[`${p.prefix}_CLIENT_SECRET`]);
+    const clientId = clean(env[`${p.prefix}_CLIENT_ID`]),
+      clientSecret = clean(env[`${p.prefix}_CLIENT_SECRET`]);
     if (clientId && clientSecret) out.push({ id: p.id, label: p.label, clientId, clientSecret });
   }
   return out;
@@ -54,8 +64,14 @@ export function authStatus(env: Env): AuthStatus {
   if (!clean(env.DATABASE_URL)) return { enabled: false, reason: "DATABASE_URL is not set", providers };
   const secret = clean(env.BETTER_AUTH_SECRET);
   if (!secret) return { enabled: false, reason: "BETTER_AUTH_SECRET is not set", providers };
-  if (secret.length < MIN_SECRET_LENGTH) return { enabled: false, reason: `BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`, providers };
-  if (providers.length === 0) return { enabled: false, reason: "no OAuth provider is configured (set <PROVIDER>_CLIENT_ID and <PROVIDER>_CLIENT_SECRET)", providers };
+  if (secret.length < MIN_SECRET_LENGTH)
+    return { enabled: false, reason: `BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`, providers };
+  if (providers.length === 0)
+    return {
+      enabled: false,
+      reason: "no OAuth provider is configured (set <PROVIDER>_CLIENT_ID and <PROVIDER>_CLIENT_SECRET)",
+      providers,
+    };
   return { enabled: true, providers };
 }
 
@@ -81,5 +97,7 @@ export function normalizeDatabaseUrl(url: string | undefined): string | undefine
     const mode = u.searchParams.get("sslmode");
     if (mode === "require" || mode === "prefer" || mode === "verify-ca") u.searchParams.set("sslmode", "verify-full");
     return u.toString();
-  } catch { return url; }
+  } catch {
+    return url;
+  }
 }
