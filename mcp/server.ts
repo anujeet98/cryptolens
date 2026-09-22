@@ -12,8 +12,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { binance } from "@/exchanges/binance";
 import { scanMarket, scanSymbol, type ScanResult } from "@/scan/scanMarket";
 import { classifyStage, STAGE_LABEL } from "@/scan/stage";
+import { detectRetest } from "@/scan/retest";
 import type { Regime } from "@/regime/regime";
 import type { Timeframe } from "@/types/market";
 
@@ -65,6 +67,12 @@ function round(n: number, digits = 1) {
   const f = 10 ** digits;
   return Math.round(n * f) / f;
 }
+
+const RETEST_NOTE =
+  "No signal combination proves a retest will hold — fakeouts happen regardless of how many indicators agree. " +
+  "'confirmed' here means: the rejection candle (mandatory) plus at least 2 of 4 independent checks (volume, " +
+  "momentum, stage, RSI failure swing) agree with the bounce direction. Fewer than 2 does not mean 'avoid' — it " +
+  "means less evidence, not none. Always show the individual signals, never collapse this into a single 'safe' verdict.";
 
 const server = new McpServer({ name: "cryptolens", version: "0.1.0" });
 
@@ -140,6 +148,73 @@ server.registerTool(
               stage: classifyStage(regime),
               stageDescription: STAGE_LABEL[classifyStage(regime)],
               ...summarizeRegime(regime),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "get_level_retest",
+  {
+    title: "Get support/resistance retest",
+    description:
+      "Checks one Binance USDT perp symbol for a recent support/resistance retest: price returning to an " +
+      "established level (2+ prior swing touches) and rejecting off it with a close back on the right side. " +
+      "Scores the rejection against 4 independent confirmation signals (volume, momentum, stage, RSI failure " +
+      "swing). Returns null if no qualifying retest happened in the recent lookback window — that means 'nothing " +
+      "to report', not 'safe to enter elsewhere'.",
+    inputSchema: {
+      symbol: z.string().min(3).max(20).describe("Binance perp symbol, e.g. BTCUSDT"),
+      timeframe: timeframeSchema.describe("Candle timeframe for both level-building and the retest check"),
+      lookbackBars: z.number().int().min(1).max(20).default(5).describe("How many recent closed candles to scan for a touch"),
+      minTouches: z.number().int().min(1).max(10).default(2).describe("Minimum prior touches for a level to count as established"),
+    },
+  },
+  async ({ symbol, timeframe, lookbackBars, minTouches }) => {
+    const sym = symbol.toUpperCase();
+    const tf = timeframe as Timeframe;
+    const candles = await binance.getCandles(sym, "perp", tf, 200);
+    const result = detectRetest(candles, tf, { lookbackBars, minTouches });
+    if (!result) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              caveat: CAVEAT,
+              retestNote: RETEST_NOTE,
+              symbol: sym,
+              timeframe,
+              result: null,
+              note: "No qualifying retest of an established level in the recent lookback window.",
+            }),
+          },
+        ],
+      };
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              caveat: CAVEAT,
+              retestNote: RETEST_NOTE,
+              symbol: sym,
+              timeframe,
+              level: { price: round(result.level.price, 6), type: result.level.type, touches: result.level.touches },
+              direction: result.direction,
+              barsAgo: result.barsAgo,
+              touchPrice: round(result.touchPrice, 6),
+              currentPrice: round(result.currentPrice, 6),
+              confirmedSignalCount: result.confirmedSignalCount,
+              confirmed: result.confirmed,
+              signals: result.signals,
             },
             null,
             2,
