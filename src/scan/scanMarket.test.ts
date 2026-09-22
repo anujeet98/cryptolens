@@ -67,6 +67,33 @@ describe("scanMarket", () => {
     expect(results.map((r) => r.symbol)).toEqual(["AUSDT", "BUSDT", "CUSDT"]);
   });
 
+  it("ranks stage ahead of raw ATR percentile: igniting beats a higher-vol extended coin", async () => {
+    const { classifyRegime } = await import("@/regime/regime");
+    const { binance } = await import("@/exchanges/binance");
+    const CANDLES_A = [{ marker: "A" }] as never;
+    const CANDLES_B = [{ marker: "B" }] as never;
+    vi.mocked(binance.getCandles).mockImplementation(async (symbol: string) => (symbol === "AUSDT" ? CANDLES_A : CANDLES_B));
+    vi.mocked(classifyRegime).mockImplementation((candles) => {
+      // A: already at an extreme and no longer widening -> "extended", despite the highest raw ATR percentile.
+      if (candles === CANDLES_A) return regime({ volatility: "EXTREME", volTrend: "STEADY", atrPercentile: 99 });
+      // B: mid volatility but actively widening right now -> "igniting", lower raw ATR percentile.
+      if (candles === CANDLES_B) return regime({ volatility: "NORMAL", volTrend: "EXPANDING", atrPercentile: 55 });
+      return null;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => [ticker("AUSDT", "5000000"), ticker("BUSDT", "4000000")] })),
+    );
+
+    const { scanMarket } = await import("./scanMarket");
+    const results = await scanMarket({ candidatePool: 10, limit: 10 });
+
+    expect(results.map((r) => [r.symbol, r.stage])).toEqual([
+      ["BUSDT", "igniting"],
+      ["AUSDT", "extended"],
+    ]);
+  });
+
   it("drops symbols the regime engine can't classify instead of throwing", async () => {
     const { classifyRegime } = await import("@/regime/regime");
     const { binance } = await import("@/exchanges/binance");

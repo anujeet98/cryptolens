@@ -13,12 +13,21 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { scanMarket, scanSymbol, type ScanResult } from "@/scan/scanMarket";
+import { classifyStage, STAGE_LABEL } from "@/scan/stage";
 import type { Regime } from "@/regime/regime";
 import type { Timeframe } from "@/types/market";
 
 const CAVEAT =
   "Not a forecast or financial advice. Backtests found the volatility label predicts range size; " +
   "trend/momentum labels showed no significant directional edge. Present this as data to weigh, never as a trade instruction.";
+
+const STAGE_NOTE =
+  "stage separates 'about to move' from 'already moved': igniting = range widening right now, not yet extreme " +
+  "(the best fit for a short hold); coiled = compressed, energy exists but timing/direction unconfirmed; " +
+  "extended = already at a volatility extreme and no longer widening, the move likely already happened; " +
+  "exhausted = stalled or cooling off a high-vol state, real reversal risk. Results are ranked igniting > coiled " +
+  "> extended > exhausted, then by volatility. Chasing an 'extended' or 'exhausted' coin is the late-entry mistake " +
+  "this ranking is designed to avoid.";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
 const timeframeSchema = z.enum(TIMEFRAMES).default("15m");
@@ -46,6 +55,8 @@ function summarizeResult(r: ScanResult) {
     price: r.price,
     changePct24h: round(r.changePct24h, 2),
     quoteVolume24h: Math.round(r.quoteVolume24h),
+    stage: r.stage,
+    stageDescription: STAGE_LABEL[r.stage],
     ...summarizeRegime(r.regime),
   };
 }
@@ -62,9 +73,10 @@ server.registerTool(
   {
     title: "Scan top picks",
     description:
-      "Scans the most liquid Binance USDT perpetuals live and ranks them by how much they're worth looking at right " +
-      "now (extreme/rising ATR percentile first, then directional conviction as a tiebreak). Returns raw regime data " +
-      "for the caller to interpret and present to the trader — never a buy/sell instruction.",
+      "Scans the most liquid Binance USDT perpetuals live and ranks them by stage first (igniting/coiled before " +
+      "extended/exhausted — see the 'stage' field), then by ATR percentile and directional conviction. Aims to " +
+      "surface coins about to move, not ones that already moved. Returns raw regime data for the caller to " +
+      "interpret and present to the trader — never a buy/sell instruction.",
     inputSchema: {
       limit: z.number().int().min(1).max(50).default(25).describe("How many ranked results to return"),
       timeframe: timeframeSchema.describe("Candle timeframe to classify on"),
@@ -83,7 +95,11 @@ server.registerTool(
       content: [
         {
           type: "text",
-          text: JSON.stringify({ caveat: CAVEAT, timeframe, count: results.length, results: results.map(summarizeResult) }, null, 2),
+          text: JSON.stringify(
+            { caveat: CAVEAT, stageNote: STAGE_NOTE, timeframe, count: results.length, results: results.map(summarizeResult) },
+            null,
+            2,
+          ),
         },
       ],
     };
@@ -112,7 +128,24 @@ server.registerTool(
       };
     }
     return {
-      content: [{ type: "text", text: JSON.stringify({ caveat: CAVEAT, symbol: sym, timeframe, ...summarizeRegime(regime) }, null, 2) }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              caveat: CAVEAT,
+              stageNote: STAGE_NOTE,
+              symbol: sym,
+              timeframe,
+              stage: classifyStage(regime),
+              stageDescription: STAGE_LABEL[classifyStage(regime)],
+              ...summarizeRegime(regime),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   },
 );

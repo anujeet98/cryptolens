@@ -8,6 +8,7 @@
  */
 import { binance } from "@/exchanges/binance";
 import { classifyRegime, type Regime } from "@/regime/regime";
+import { classifyStage, STAGE_PRIORITY, type Stage } from "@/scan/stage";
 import type { Candle, Timeframe } from "@/types/market";
 
 export interface ScanResult {
@@ -16,6 +17,7 @@ export interface ScanResult {
   changePct24h: number;
   quoteVolume24h: number;
   regime: Regime;
+  stage: Stage;
 }
 
 interface BinanceTicker24h {
@@ -86,6 +88,7 @@ export async function scanMarket(opts: ScanOptions = {}): Promise<ScanResult[]> 
         changePct24h: +t.priceChangePercent,
         quoteVolume24h: +t.quoteVolume,
         regime,
+        stage: classifyStage(regime),
       };
     } catch {
       return null; // one symbol's failure (delisted, bad data) never kills the scan
@@ -95,6 +98,8 @@ export async function scanMarket(opts: ScanOptions = {}): Promise<ScanResult[]> 
   return results
     .filter((r): r is ScanResult => r !== null)
     .sort((a, b) => {
+      const stageDiff = STAGE_PRIORITY[a.stage] - STAGE_PRIORITY[b.stage];
+      if (stageDiff !== 0) return stageDiff;
       const volDiff = b.regime.atrPercentile - a.regime.atrPercentile;
       if (Math.abs(volDiff) > 1) return volDiff;
       const convA = Math.abs(a.regime.trendScore) * (a.regime.confidence / 100);
