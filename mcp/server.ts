@@ -13,10 +13,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { binance } from "@/exchanges/binance";
+import { classifyRegime, type Regime } from "@/regime/regime";
 import { scanMarket, scanSymbol, type ScanResult } from "@/scan/scanMarket";
 import { classifyStage, STAGE_LABEL } from "@/scan/stage";
 import { detectRetest } from "@/scan/retest";
-import type { Regime } from "@/regime/regime";
+import { evaluateRetestFollowup, evaluateScanPickFollowup, type RetestSnapshot, type ScanPickSnapshot } from "@/scan/followup";
+import { listTrackedSignals, openTrackerDb, trackSignal } from "@/scan/trackStore";
 import type { Timeframe } from "@/types/market";
 
 const CAVEAT =
@@ -224,6 +226,145 @@ server.registerTool(
     };
   },
 );
+
+server.registerTool(
+  "track_signal",
+  {
+    title: "Track a signal for follow-up",
+    description:
+      "Logs a live snapshot of one symbol (its regime/stage, or its current retest state) to local storage so " +
+      "check_followups can later report whether it held up. Only call this when the trader actually wants to " +
+      "follow up on something specific — not automatically for every scan result.",
+    inputSchema: {
+      symbol: z.string().min(3).max(20).describe("Binance perp symbol, e.g. BTCUSDT"),
+      timeframe: timeframeSchema.describe("Candle timeframe to snapshot on"),
+      kind: z.enum(["scan_pick", "retest"]).describe("What to snapshot: general regime/stage, or the current retest state"),
+      note: z.string().max(200).optional().describe("Optional free-text reason for tracking this"),
+    },
+  },
+  async ({ symbol, timeframe, kind, note }) => {
+    const sym = symbol.toUpperCase();
+    const tf = timeframe as Timeframe;
+    const db = openTrackerDb();
+    try {
+      if (kind === "scan_pick") {
+        const candles = await binance.getCandles(sym, "perp", tf, 150);
+        const regime = classifyRegime(candles, tf);
+        if (!regime || !candles.length) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "Not enough candle history to snapshot." }) }], isError: true };
+        }
+        const price = candles[candles.length - 1].close;
+        const snapshot: ScanPickSnapshot = {
+          kind: "scan_pick",
+          price,
+          stage: classifyStage(regime),
+          trend: regime.trend,
+          volatility: regime.volatility,
+          atrPercentile: round(regime.atrPercentile),
+        };
+        const id = trackSignal(db, { symbol: sym, timeframe, kind, note, snapshot });
+        return { content: [{ type: "text", text: JSON.stringify({ trackId: id, symbol: sym, timeframe, snapshot }, null, 2) }] };
+      }
+
+      const candles = await binance.getCandles(sym, "perp", tf, 200);
+      const result = detectRetest(candles, tf);
+      if (!result) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "No current retest on this symbol/timeframe to track." }) }],
+          isError: true,
+        };
+      }
+      const snapshot: RetestSnapshot = {
+        kind: "retest",
+        price: result.currentPrice,
+        level: { price: result.level.price, type: result.level.type, touches: result.level.touches },
+        direction: result.direction,
+        confirmed: result.confirmed,
+        confirmedSignalCount: result.confirmedSignalCount,
+      };
+      const id = trackSignal(db, { symbol: sym, timeframe, kind, note, snapshot });
+      return { content: [{ type: "text", text: JSON.stringify({ trackId: id, symbol: sym, timeframe, snapshot }, null, 2) }] };
+    } finally {
+      db.close();
+    }
+  },
+);
+
+server.registerTool(
+  "check_followups",
+  {
+    title: "Check tracked signals",
+    description:
+      "Re-fetches live data for signals previously logged with track_signal and reports whether each one held, " +
+      "was invalidated (the fakeout case), or is still pending — never a single collapsed verdict, always the " +
+      "price move and specifics.",
+    inputSchema: {
+      symbol: z.string().min(3).max(20).optional().describe("Filter to one symbol; omit to check all tracked signals"),
+      sinceHours: z.number().min(0.1).max(24 * 30).default(24).describe("Only check signals logged within this many hours"),
+      limit: z.number().int().min(1).max(50).default(20),
+    },
+  },
+  async ({ symbol, sinceHours, limit }) => {
+    const db = openTrackerDb();
+    let tracked;
+    try {
+      tracked = listTrackedSignals(db, {
+        symbol: symbol?.toUpperCase(),
+        sinceMs: Date.now() - sinceHours * 3_600_000,
+        limit,
+      });
+    } finally {
+      db.close();
+    }
+
+    const results = await Promise.all(
+      tracked.map(async (t) => {
+        try {
+          const candles = await binance.getCandles(t.symbol, "perp", t.timeframe as Timeframe, 150);
+          if (!candles.length) return { ...base(t), error: "No live data available." };
+          const currentPrice = candles[candles.length - 1].close;
+
+          if (t.kind === "scan_pick") {
+            const regime = classifyRegime(candles, t.timeframe as Timeframe);
+            const currentStage = regime ? classifyStage(regime) : null;
+            if (!currentStage) return { ...base(t), error: "Not enough live history to re-evaluate." };
+            const fu = evaluateScanPickFollowup(t.snapshot as ScanPickSnapshot, currentPrice, currentStage);
+            return { ...base(t), currentPrice: round(currentPrice, 6), ...fu };
+          }
+
+          const fu = evaluateRetestFollowup(t.snapshot as RetestSnapshot, currentPrice);
+          return { ...base(t), currentPrice: round(currentPrice, 6), ...fu };
+        } catch {
+          return { ...base(t), error: "Live re-fetch failed." };
+        }
+      }),
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            { caveat: CAVEAT, count: results.length, results },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+function base(t: { id: number; symbol: string; timeframe: string; kind: string; loggedAtMs: number; note: string | null }) {
+  return {
+    trackId: t.id,
+    symbol: t.symbol,
+    timeframe: t.timeframe,
+    kind: t.kind,
+    note: t.note,
+    minutesAgo: round((Date.now() - t.loggedAtMs) / 60_000, 1),
+  };
+}
 
 async function main() {
   const transport = new StdioServerTransport();

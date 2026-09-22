@@ -42,12 +42,18 @@ npm run dev   # http://localhost:3000
 
 ## MCP server
 
-Exposes the scanner to any MCP client (e.g. Claude Code) as two tools, computed live at call time — no
-background jobs, no stored positions, nothing autonomous:
+Exposes the scanner to any MCP client (e.g. Claude Code) as tools, computed live at call time — no
+background jobs, nothing autonomous:
 
-- `scan_top_picks` — ranks the most liquid Binance USDT perps by ATR percentile (volatility), tiebroken by
-  directional conviction. Returns raw regime data, not a trade call.
+- `scan_top_picks` — ranks the most liquid Binance USDT perps by stage (igniting/coiled before
+  extended/exhausted — see `src/scan/stage.ts`), tiebroken by ATR percentile and directional conviction.
+  Returns raw regime data, not a trade call.
 - `get_coin_snapshot` — full regime snapshot for one symbol, same data as the page.
+- `get_level_retest` — checks one symbol for a recent support/resistance retest, scored against 4
+  independent confirmation signals (`src/scan/retest.ts`). No signal combination proves a retest holds.
+- `track_signal` / `check_followups` — logs a snapshot (scan pick or retest) to a local SQLite file
+  (`data/scan-tracker.db`, gitignored) on request, then later re-fetches live data to report whether it
+  held, was invalidated, or is still pending. Nothing is tracked automatically.
 
 ```bash
 npm run mcp                              # run directly (stdio)
