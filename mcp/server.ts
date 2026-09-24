@@ -19,6 +19,15 @@ import { classifyStage, STAGE_LABEL } from "@/scan/stage";
 import { detectRetest } from "@/scan/retest";
 import { evaluateRetestFollowup, evaluateScanPickFollowup, type RetestSnapshot, type ScanPickSnapshot } from "@/scan/followup";
 import { listTrackedSignals, openTrackerDb, trackSignal } from "@/scan/trackStore";
+import {
+  commentate,
+  readPump,
+  REGIME_LABEL,
+  statusLine,
+  type CommentaryState,
+  type PumpReading,
+} from "@/scan/pumpwatch";
+import { fetchPumpInputs, openLiquidationStream } from "@/scan/pumpwatchFeed";
 import type { Timeframe } from "@/types/market";
 
 const CAVEAT =
@@ -346,6 +355,113 @@ server.registerTool(
           type: "text",
           text: JSON.stringify(
             { caveat: CAVEAT, count: results.length, results },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+const PUMP_NOTE =
+  "score counts how many of 12 continuation ingredients are present right now (>=8 strong, 5-7 mixed, <=4 weak). " +
+  "It describes current order flow and positioning, not what happens next. Thin coins flip factors within seconds " +
+  "(especially the order book): weigh the regime, VWAP side and OI direction over single flips. Data is Binance; " +
+  "CoinDCX B- perps track it, but the trader's own CoinDCX orders are not visible in it.";
+
+const symbolSchema = z.string().min(2).max(20).describe("Coin or Binance perp symbol, e.g. XAI or XAIUSDT");
+const toPerp = (s: string) => s.toUpperCase().replace(/USDT$/, "") + "USDT";
+
+server.registerTool(
+  "get_pump_factors",
+  {
+    title: "Get pump-continuation factors",
+    description:
+      "Live 12-factor read on whether a pumping perp has the ingredients for another leg: VWAP of the pump, pullback " +
+      "depth, higher lows, taker buy %, 15m CVD, up/down volume, OI trend, retail long/short, funding/basis, book " +
+      "imbalance, short liquidations, spot buying. Also returns the OI/price regime (new longs / short covering / " +
+      "shorts piling / longs exiting) and warnings. Use when the trader asks 'will it pump again / is it unwinding'.",
+    inputSchema: { symbol: symbolSchema },
+  },
+  async ({ symbol }) => {
+    const sym = toPerp(symbol);
+    const r = readPump(await fetchPumpInputs(sym));
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            { caveat: CAVEAT, pumpNote: PUMP_NOTE, symbol: sym, regimeLabel: REGIME_LABEL[r.regime], ...r },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "watch_commentary",
+  {
+    title: "Watch a coin with live commentary",
+    description:
+      "Watches one perp live for a short window and returns timestamped play-by-play lines: VWAP lost/reclaimed, new " +
+      "leg highs, broken 5m lows, pullback thresholds, buyer/seller takeover, OI/price regime shifts, OI jumps, book " +
+      "flips, volume spikes, retail L/S shifts, score swings, and every liquidation >= $500 as it happens, plus a " +
+      "status line every 30s. Blocks for durationSec, so keep it short and call again to keep watching.",
+    inputSchema: {
+      symbol: symbolSchema,
+      durationSec: z.number().int().min(10).max(240).default(60).describe("How long to watch before returning"),
+      intervalSec: z.number().int().min(3).max(30).default(5).describe("Seconds between readings"),
+    },
+  },
+  async ({ symbol, durationSec, intervalSec }) => {
+    const sym = toPerp(symbol);
+    const lines: string[] = [];
+    const say = (msg: string) => lines.push(`${new Date().toLocaleTimeString("en-GB", { hour12: false })}  ${msg}`);
+    const stream = openLiquidationStream(sym, (l) => {
+      if (l.usd >= 500) say(`${l.side === "short" ? "SHORTS" : "LONGS"} liquidated $${Math.round(l.usd)} at ${l.price}`);
+    });
+    const state: CommentaryState = {};
+    let prev: PumpReading | null = null;
+    let lastBeat = Date.now();
+    const end = Date.now() + durationSec * 1000;
+    try {
+      while (true) {
+        try {
+          const cur = readPump(await fetchPumpInputs(sym, stream.liqs));
+          for (const line of commentate(prev, cur, state)) say(line);
+          if (Date.now() - lastBeat >= 30_000) {
+            say(`status: ${statusLine(cur)}`);
+            lastBeat = Date.now();
+          }
+          prev = cur;
+        } catch (e) {
+          say(`fetch error: ${(e as Error).message}`);
+        }
+        if (Date.now() + intervalSec * 1000 > end) break;
+        await new Promise((r) => setTimeout(r, intervalSec * 1000));
+      }
+    } finally {
+      stream.stop();
+    }
+    if (prev) say(`final: ${statusLine(prev)}`);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              caveat: CAVEAT,
+              pumpNote: PUMP_NOTE,
+              symbol: sym,
+              watchedSec: durationSec,
+              regimeLabel: prev ? REGIME_LABEL[prev.regime] : null,
+              score: prev?.score ?? null,
+              commentary: lines,
+            },
             null,
             2,
           ),

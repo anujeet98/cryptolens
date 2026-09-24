@@ -54,6 +54,11 @@ background jobs, nothing autonomous:
 - `track_signal` / `check_followups` — logs a snapshot (scan pick or retest) to a local SQLite file
   (`data/scan-tracker.db`, gitignored) on request, then later re-fetches live data to report whether it
   held, was invalidated, or is still pending. Nothing is tracked automatically.
+- `get_pump_factors` — 12-factor pump-continuation read for one perp (pump VWAP, pullback depth, taker
+  flow/CVD, OI regime, retail L/S, funding, book imbalance, liquidations, spot buying) plus a score and
+  warnings (`src/scan/pumpwatch.ts`). Describes current flow, not what happens next.
+- `watch_commentary` — watches one perp for a short window (default 60s) and returns timestamped
+  play-by-play lines: VWAP lost/reclaimed, lower lows, OI/price regime shifts, liquidations as they hit.
 
 ```bash
 npm run mcp                              # run directly (stdio)
