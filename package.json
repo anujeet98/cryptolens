@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "mcp": "tsx mcp/server.ts",
     "record": "tsx scripts/record.ts",
     "record:status": "tsx scripts/record-status.ts",
     "backtest": "tsx scripts/backtest.ts",
@@ -23,12 +24,14 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "better-auth": "^1.7.5",
     "lightweight-charts": "^5.2.1",
     "next": "16.3.5",
     "pg": "^8.23.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

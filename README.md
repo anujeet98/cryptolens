@@ -36,7 +36,37 @@ npm run dev   # http://localhost:3000
 - `scripts/backtest.ts` — `npm run backtest`
 - `scripts/record.ts` — the recorder process (`npm run record`)
 - `src/regime` — rule-based regime classifier (ADX-gated trend vs range, weighted directional vote, volatility percentile, stall detection), unit-tested
+- `src/scan` — multi-symbol live scan: ranks liquid Binance perps by ATR percentile (the backtested-predictive label), unit-tested
+- `mcp/server.ts` — MCP server exposing the scan as tools (`npm run mcp`), see below
 - `src/types` — common schema
+
+## MCP server
+
+Exposes the scanner to any MCP client (e.g. Claude Code) as tools, computed live at call time — no
+background jobs, nothing autonomous:
+
+- `scan_top_picks` — ranks the most liquid Binance USDT perps by stage (igniting/coiled before
+  extended/exhausted — see `src/scan/stage.ts`), tiebroken by ATR percentile and directional conviction.
+  Returns raw regime data, not a trade call.
+- `get_coin_snapshot` — full regime snapshot for one symbol, same data as the page.
+- `get_level_retest` — checks one symbol for a recent support/resistance retest, scored against 4
+  independent confirmation signals (`src/scan/retest.ts`). No signal combination proves a retest holds.
+- `track_signal` / `check_followups` — logs a snapshot (scan pick or retest) to a local SQLite file
+  (`data/scan-tracker.db`, gitignored) on request, then later re-fetches live data to report whether it
+  held, was invalidated, or is still pending. Nothing is tracked automatically.
+- `get_pump_factors` — 12-factor pump-continuation read for one perp (pump VWAP, pullback depth, taker
+  flow/CVD, OI regime, retail L/S, funding, book imbalance, liquidations, spot buying) plus a score and
+  warnings (`src/scan/pumpwatch.ts`). Describes current flow, not what happens next.
+- `watch_commentary` — watches one perp for a short window (default 60s) and returns timestamped
+  play-by-play lines: VWAP lost/reclaimed, lower lows, OI/price regime shifts, liquidations as they hit.
+
+```bash
+npm run mcp                              # run directly (stdio)
+claude mcp add cryptolens -- npx tsx <repo-path>/mcp/server.ts   # register with Claude Code
+```
+
+Every tool result carries the same caveat the web app shows: the volatility label is the only one with
+backtested predictive value; trend/momentum labels showed no significant directional edge (`npm run backtest`).
 
 ## Notes on exchanges
 
